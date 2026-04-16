@@ -18,7 +18,8 @@ import {
   Menu as MenuIcon,
   Refresh, 
   Logout,
-  Assessment
+  Assessment,
+  Devices
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Sale, Item, User, Category } from '@/types';
@@ -40,6 +41,7 @@ const navItems = [
   { id: 'inventory', label: 'Inventory', icon: <Inventory /> },
   { id: 'users', label: 'Users', icon: <People /> },
   { id: 'reports', label: 'Reports', icon: <Assessment /> },
+  { id: 'devices', label: 'Devices', icon: <Devices /> },
   { id: 'settings', label: 'Settings', icon: <Settings /> },
 ];
 

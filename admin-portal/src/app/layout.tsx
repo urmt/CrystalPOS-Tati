@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "CrystalPOS Admin",
   description: "Crystal Market POS Admin Portal",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

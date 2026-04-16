@@ -42,7 +42,13 @@
 
 ## ⏳ To Do
 
-### Priority 1: Connect to Supabase
+### Priority 1: Run Database Migration
+
+1. Go to: https://supabase.com/dashboard/project/savdtmzhgtpddqtreoty
+2. Open **SQL Editor**
+3. Copy content from: `backend/supabase/migrations/002_device_management.sql`
+4. Run the SQL
+5. Should see: Tables created successfully
 
 #### Step 1.1: Run Database Migration
 1. Go to: https://supabase.com/dashboard/project/savdtmzhgtpddqtreoty
