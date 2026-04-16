@@ -1,67 +1,36 @@
-# CrystalPOS - Crystal Market Custom POS System
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-A beautiful, powerful, offline-first POS system for selling crystals, minerals, water bottles, and incense.
+## Getting Started
 
-## Project Status
+First, run the development server:
 
-**Status:** In Development  
-**Last Updated:** April 15, 2026
-
-## Quick Start
-
-### Prerequisites
-
-1. Node.js 18+
-2. Supabase account (free tier)
-3. React Native + Expo (for iPad app)
-4. Next.js (for admin portal)
-
-### Setup
-
-1. Clone the repository
-2. Create `.env` files based on examples
-3. Run migrations in Supabase
-4. Install dependencies and start developing
-
-### Project Structure
-
-```
-CrystalPOS-Tati/
-├── CrystalPOS.md           # Main documentation
-├── PROJECT_STATUS.md    # Project status tracking
-├── backend/           # Backend (Supabase)
-│   └── supabase/
-│       ├── migrations/
-│       ├── functions/
-│       └── seed-data/
-├── ipad-app/         # iPad app (React Native + Expo)
-│   ├── src/
-│   │   ├── components/
-│   │   ├── screens/
-│   │   ├── database/
-│   │   ├── api/
-│   │   ├── store/
-│   │   └── utils/
-│   └── App.tsx
-└── admin-portal/     # Admin portal (Next.js)
-    └── src/
-        ├── components/
-        ├── pages/
-        ├── lib/
-        └── hooks/
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## Technology Stack
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-- **Backend:** Supabase (PostgreSQL)
-- **iPad App:** React Native + Expo + WatermelonDB
-- **Admin Portal:** Next.js 14 + TailwindCSS
-- **Payments:** SINPE Móvil, Lightning Network, Card, Cash
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Documentation
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-See [CrystalPOS.md](CrystalPOS.md) for complete technical documentation.
+## Learn More
 
-## License
+To learn more about Next.js, take a look at the following resources:
 
-Proprietary - Crystal Market
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
