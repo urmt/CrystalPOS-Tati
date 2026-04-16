@@ -10,10 +10,10 @@ import {
 } from '@mui/material';
 import { 
   Inventory as InventoryIcon, Add, Edit, Delete, Download, Menu as MenuIcon, 
-  Search, Refresh, Image as ImageIcon, Category
+  Search, Refresh, Image as ImageIcon, Category as CategoryIcon
 } from '@mui/icons-material';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
-import { Item, Category, Subcategory } from '@/types';
+import { Item, Category as CategoryType, Subcategory } from '@/types';
 import { formatCurrency, getStockStatus, getStockStatusLabel } from '@/utils/format';
 
 const COLORS = { primary: '#6B4C9A', drawerWidth: 240 };
@@ -27,7 +27,7 @@ const navItems = [
 
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryType[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -54,7 +54,7 @@ export default function InventoryPage() {
         supabase.from('subcategories').select('*').order('name'),
       ]);
       if (itemsRes.data) setItems(itemsRes.data as Item[]);
-      if (catsRes.data) setCategories(catsRes.data as Category[]);
+      if (catsRes.data) setCategories(catsRes.data as CategoryType[]);
       if (subsRes.data) setSubcategories(subsRes.data as Subcategory[]);
     } catch (e) { console.error(e); }
     setIsLoading(false);
@@ -117,7 +117,7 @@ export default function InventoryPage() {
     }
   };
 
-  const handleCategorySave = async (cat?: Category) => {
+  const handleCategorySave = async (cat?: CategoryType) => {
     try {
       const name = cat ? prompt('New name:', cat.name) : prompt('Category name:');
       if (!name) return;
@@ -187,7 +187,7 @@ export default function InventoryPage() {
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
       <Drawer variant="permanent" sx={{ width: drawerOpen ? COLORS.drawerWidth : 72, '& .MuiDrawer-paper': { width: drawerOpen ? COLORS.drawerWidth : 72, bgcolor: COLORS.primary, color: 'white', transition: 'width 0.2s' } }}>
         <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {drawerOpen && <Typography variant="h6" fontWeight="bold">CrystalPOS</Typography>}
+          {drawerOpen && <Typography variant="h6" sx={{ fontWeight: 'bold' }}>CrystalPOS</Typography>}
           <IconButton onClick={() => setDrawerOpen(!drawerOpen)} sx={{ color: 'white' }}><MenuIcon /></IconButton>
         </Box>
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
@@ -196,7 +196,7 @@ export default function InventoryPage() {
 
       <Box component="main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>Inventory</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', color: COLORS.primary }}>Inventory</Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>Export</Button>
             <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_ids: [], image_url: '', description: '' }); setDialogOpen(true); }}>

@@ -102,7 +102,7 @@ export default function DevicesPage() {
   };
 
   return (
-    <DashboardLayout title="Device Management">
+    <DashboardLayout currentPage="devices">
       <Box sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -159,7 +159,7 @@ export default function DevicesPage() {
                 {devices.map((device) => (
                   <TableRow key={device.id} hover>
                     <TableCell>
-                      <Typography fontWeight={device.is_blocked ? 'normal' : 'bold'}>
+                      <Typography sx={{ fontWeight: device.is_blocked ? 'normal' : 'bold' }}>
                         {device.device_name || 'Unnamed Device'}
                       </Typography>
                     </TableCell>
