@@ -30,6 +30,7 @@ const COLORS = {
   accent: '#20B2AA',
   success: '#228B22',
   error: '#DC3545',
+  warning: '#FF9800',
   darkText: '#1a1a1a',
   lightText: '#333333',
 };
@@ -39,6 +40,41 @@ interface CartItem {
   quantity: number;
   subtotal: number;
 }
+
+// =============================================================================
+// Stock Warning System
+// Returns warning level based on days until stock runs out
+// =============================================================================
+const getStockWarning = (item: Item): { level: 'none' | 'warning' | 'critical' | 'out'; days: number; message: string } => {
+  const stock = item.current_weight_grams || 0;
+  const rate = item.depletion_rate_grams_per_day || 0;
+  
+  // Out of stock
+  if (stock <= 0) {
+    return { level: 'out', days: 0, message: 'OUT OF STOCK' };
+  }
+  
+  // No depletion rate = unknown
+  if (rate <= 0) {
+    return { level: 'none', days: 999, message: 'In stock - rate unknown' };
+  }
+  
+  // Calculate days until empty
+  const daysUntilEmpty = Math.round(stock / rate);
+  
+  // Critical: less than 30 days (red)
+  if (daysUntilEmpty <= 30) {
+    return { level: 'critical', days: daysUntilEmpty, message: `Run out in ${daysUntilEmpty} days!` };
+  }
+  
+  // Warning: less than 60 days (orange)
+  if (daysUntilEmpty <= 60) {
+    return { level: 'warning', days: daysUntilEmpty, message: `Low stock - ${daysUntilEmpty} days left` };
+  }
+  
+  // Good stock
+  return { level: 'none', days: daysUntilEmpty, message: `~${daysUntilEmpty} days` };
+};
 
 const OFFLINE_KEY = 'crystalpos_offline_data';
 const PENDING_SALES_KEY = 'crystalpos_pending_sales';
@@ -404,13 +440,36 @@ export default function POSPage() {
         {currentView === 'inventory' && (
           <Box>
             <Typography variant="h6" sx={{ mb: 2, color: COLORS.darkText }}>Inventory ({items.length})</Typography>
+            <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Chip label="🔴 Critical (<30 days)" sx={{ bgcolor: COLORS.error, color: 'white' }} size="small" />
+              <Chip label="🟠 Warning (<60 days)" sx={{ bgcolor: COLORS.warning, color: 'white' }} size="small" />
+              <Chip label="🟢 Good" sx={{ bgcolor: COLORS.success, color: 'white' }} size="small" />
+              <Chip label="⚫ Out of Stock" sx={{ bgcolor: '#333', color: 'white' }} size="small" />
+            </Box>
             <Paper>
               <List>
-                {items.slice(0, 50).map(item => (
-                  <ListItem key={item.id}>
-                    <ListItemText primary={<Typography sx={{ color: COLORS.darkText }}>{item.name}</Typography>} secondary={<Typography sx={{ color: COLORS.lightText }}>{item.current_weight_grams}g | {formatCurrency(Number(item.price_crc))}</Typography>} />
-                  </ListItem>
-                ))}
+                {items.slice(0, 50).map(item => {
+                  const warning = getStockWarning(item);
+                  const bgColor = warning.level === 'critical' ? COLORS.error : warning.level === 'warning' ? COLORS.warning : warning.level === 'out' ? '#333' : 'transparent';
+                  const textColor = warning.level === 'out' ? 'white' : COLORS.darkText;
+                  return (
+                    <ListItem key={item.id} sx={{ bgcolor: bgColor, borderRadius: 1, mb: 0.5, mx: 1 }}>
+                      <ListItemText 
+                        primary={
+                          <Typography sx={{ color: textColor, fontWeight: warning.level !== 'none' ? 'bold' : 'normal' }}>
+                            {item.name}
+                          </Typography>
+                        } 
+                        secondary={
+                          <Typography sx={{ color: textColor, opacity: 0.9 }}>
+                            {item.current_weight_grams}g | {formatCurrency(Number(item.price_crc))}
+                            {warning.level !== 'none' && ` | ${warning.message}`}
+                          </Typography>
+                        } 
+                      />
+                    </ListItem>
+                  );
+                })}
               </List>
             </Paper>
           </Box>

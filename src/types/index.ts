@@ -53,6 +53,7 @@ export interface Item {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  last_sold_at: string | null;
 }
 
 export interface Sale {
