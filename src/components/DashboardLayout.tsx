@@ -22,7 +22,7 @@ import {
   Devices
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
-import { Sale, Item, User, Category } from '@/types';
+import { Sale, Item, User, Category as CategoryType } from '@/types';
 import { formatCurrency, formatDate, getStockStatus, getStockStatusLabel } from '@/utils/format';
 
 const COLORS = { 
