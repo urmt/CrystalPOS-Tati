@@ -759,19 +759,25 @@ export default function POSPage() {
 
         {currentView === 'sales' && (
           <>
-            <TextField fullWidth size="small" placeholder="Buscar items / Search items..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} sx={{ mb: 1, bgcolor: 'white' }} />
+            <TextField fullWidth size="small" placeholder="Buscar items..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} sx={{ mb: 1, bgcolor: 'white' }} />
             <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1 }}>
-              <Button size="small" variant={selectedCategory === 'all' ? 'contained' : 'outlined'} onClick={() => { setSelectedCategory('all'); setSelectedSubcategory('all'); }}>Todos / All</Button>
-              {categories.map(cat => (
-                <Button key={cat.id} size="small" variant={selectedCategory === cat.id ? 'contained' : 'outlined'} onClick={() => { setSelectedCategory(cat.id); setSelectedSubcategory('all'); }}>{(cat as any).name_es ? `${cat.name} / ${(cat as any).name_es}` : cat.name}</Button>
-              ))}
+              <Button size="small" variant={selectedCategory === 'all' ? 'contained' : 'outlined'} onClick={() => { setSelectedCategory('all'); setSelectedSubcategory('all'); }}>Todos</Button>
+              {categories.map(cat => {
+                const displayName = (cat as any).name_es ? (cat.name.includes('/') ? cat.name : `${cat.name} / ${(cat as any).name_es}`) : cat.name;
+                return (
+                  <Button key={cat.id} size="small" variant={selectedCategory === cat.id ? 'contained' : 'outlined'} onClick={() => { setSelectedCategory(cat.id); setSelectedSubcategory('all'); }}>{displayName}</Button>
+                );
+              })}
             </Box>
             {selectedCategory !== 'all' && getSubcategoriesForCategory(selectedCategory).length > 0 && (
               <Box sx={{ display: 'flex', gap: 0.5, overflowX: 'auto', pb: 1, ml: 1 }}>
-                <Button size="small" variant={selectedSubcategory === 'all' ? 'contained' : 'outlined'} onClick={() => setSelectedSubcategory('all')}>Todos / All</Button>
-                {getSubcategoriesForCategory(selectedCategory).map(sub => (
-                  <Button key={sub.id} size="small" variant={selectedSubcategory === sub.id ? 'contained' : 'outlined'} onClick={() => setSelectedSubcategory(sub.id)}>{(sub as any).name_es ? `${sub.name} / ${(sub as any).name_es}` : sub.name}</Button>
-                ))}
+                <Button size="small" variant={selectedSubcategory === 'all' ? 'contained' : 'outlined'} onClick={() => setSelectedSubcategory('all')}>Todos</Button>
+                {getSubcategoriesForCategory(selectedCategory).map(sub => {
+                  const subDisplay = (sub as any).name_es ? (sub.name.includes('/') ? sub.name : `${sub.name} / ${(sub as any).name_es}`) : sub.name;
+                  return (
+                    <Button key={sub.id} size="small" variant={selectedSubcategory === sub.id ? 'contained' : 'outlined'} onClick={() => setSelectedSubcategory(sub.id)}>{subDisplay}</Button>
+                  );
+                })}
               </Box>
             )}
             <Grid container spacing={1.5}>
