@@ -49,8 +49,10 @@ export interface Item {
   subcategory_id: string | null;
   description: string | null;
   description_es: string | null;
+  pricing_type: 'per_gram' | 'fixed';
   price_crc: number;
   suggested_price_crc: number;
+  fixed_price_crc: number;
   current_weight_grams: number;
   min_threshold_grams: number;
   depletion_rate_grams_per_day: number;

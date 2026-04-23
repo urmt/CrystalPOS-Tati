@@ -46,6 +46,7 @@ export default function InventoryPage() {
   
   const [form, setForm] = useState({ 
     name: '', sku: '', cost_per_gram: 0, suggested_price_crc: 0, price_crc: 0, 
+    pricing_type: 'per_gram' as 'per_gram' | 'fixed', fixed_price_crc: 0,
     current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '',
     image_url: '', description: '' 
   });
@@ -296,7 +297,7 @@ export default function InventoryPage() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>Export</Button>
             <Button variant="outlined" color="error" startIcon={<DeleteSweep />} onClick={handleDeleteAllContents}>Delete All Contents</Button>
-            <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', cost_per_gram: 0, suggested_price_crc: 0, price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', image_url: '', description: '' }); setDialogOpen(true); }}>
+            <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', cost_per_gram: 0, suggested_price_crc: 0, price_crc: 0, pricing_type: 'per_gram', fixed_price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', image_url: '', description: '' }); setDialogOpen(true); }}>
               Add Item
             </Button>
           </Box>
@@ -417,7 +418,7 @@ export default function InventoryPage() {
                         </TableCell>
                         <TableCell><Chip label={getStockStatusLabel(item.current_weight_grams || 0, item.min_threshold_grams || 100)} size="small" color={status} /></TableCell>
                         <TableCell>
-                          <IconButton size="small" onClick={() => { setEditItem(item); setForm({ name: item.name, sku: item.sku, cost_per_gram: item.cost_per_gram || 0, suggested_price_crc: (item as any).suggested_price_crc || 0, price_crc: item.price_crc, current_weight_grams: item.current_weight_grams, min_threshold_grams: item.min_threshold_grams, category_id: item.category_id || '', subcategory_id: item.subcategory_id || '', image_url: item.image_url || '', description: item.description || '' }); setDialogOpen(true); }}>
+                          <IconButton size="small" onClick={() => { setEditItem(item); setForm({ name: item.name, sku: item.sku, cost_per_gram: item.cost_per_gram || 0, suggested_price_crc: (item as any).suggested_price_crc || 0, price_crc: item.price_crc, pricing_type: (item as any).pricing_type || 'per_gram', fixed_price_crc: (item as any).fixed_price_crc || 0, current_weight_grams: item.current_weight_grams, min_threshold_grams: item.min_threshold_grams, category_id: item.category_id || '', subcategory_id: item.subcategory_id || '', image_url: item.image_url || '', description: item.description || '' }); setDialogOpen(true); }}>
                             <Edit fontSize="small" />
                           </IconButton>
                           <IconButton size="small" color="error" onClick={() => handleDelete(item)}><Delete fontSize="small" /></IconButton>
@@ -522,6 +523,20 @@ export default function InventoryPage() {
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Price (CRC)/g" type="number" value={form.price_crc} onChange={e => setForm({ ...form, price_crc: Number(e.target.value) })} required />
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Pricing Type</InputLabel>
+                <Select value={form.pricing_type} label="Pricing Type" onChange={e => setForm({ ...form, pricing_type: e.target.value as 'per_gram' | 'fixed' })}>
+                  <MenuItem value="per_gram">Per Gram (weight-based)</MenuItem>
+                  <MenuItem value="fixed">Fixed Price (single price)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            {form.pricing_type === 'fixed' && (
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="Fixed Price (CRC)" type="number" value={form.fixed_price_crc} onChange={e => setForm({ ...form, fixed_price_crc: Number(e.target.value) })} required />
+              </Grid>
+            )}
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Current Weight (g)" type="number" value={form.current_weight_grams} onChange={e => setForm({ ...form, current_weight_grams: Number(e.target.value) })} required />
             </Grid>

@@ -397,8 +397,20 @@ export default function POSPage() {
     };
   }, [resetIdleTimer]);
 
-  // Sort items: most expensive first for gallery
-  const sortedItems = [...items].sort((a, b) => Number(b.price_crc) - Number(a.price_crc));
+  // Helper to get display price for an item
+const getDisplayPrice = (item: Item) => {
+  const pricingType = (item as any).pricing_type || 'per_gram';
+  if (pricingType === 'fixed') {
+    return (item as any).fixed_price_crc || 0;
+  }
+  return Number(item.price_crc);
+};
+
+// Helper to check if item is fixed price
+const isFixedPrice = (item: Item) => {
+  return (item as any).pricing_type === 'fixed';
+};
+  const sortedItems = [...items].sort((a, b) => getDisplayPrice(b) - getDisplayPrice(a));
 
   const handleGallerySwipe = (direction: 'prev' | 'next') => {
     resetIdleTimer();
@@ -715,10 +727,16 @@ export default function POSPage() {
                   </Typography>
                 )}
                 <Typography variant="h3" sx={{ color: '#fff', fontWeight: 'bold', mb: 0.5, textShadow: '0 0 15px rgba(0,0,0,0.5)' }}>
-                  {formatCurrency(Number(sortedItems[galleryIndex].price_crc))}/g
+                  {isFixedPrice(sortedItems[galleryIndex]) 
+                    ? formatCurrency(getDisplayPrice(sortedItems[galleryIndex]))
+                    : `${formatCurrency(getDisplayPrice(sortedItems[galleryIndex]))}/g`
+                  }
                 </Typography>
                 <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                  📦 {sortedItems[galleryIndex].current_weight_grams}g disponibles
+                  {isFixedPrice(sortedItems[galleryIndex])
+                    ? `📦 ${sortedItems[galleryIndex].current_weight_grams > 0 ? sortedItems[galleryIndex].current_weight_grams + 'g disponible' : 'Sin stock'}`
+                    : `📦 ${sortedItems[galleryIndex].current_weight_grams}g disponibles`
+                  }
                 </Typography>
               </Box>
 
@@ -787,8 +805,12 @@ export default function POSPage() {
                     <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                       {item.image_url && <Box sx={{ width: '100%', height: 60, bgcolor: 'grey.200', borderRadius: 1, mb: 1 }}><img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></Box>}
                       <Typography sx={{ fontWeight: 'bold', fontSize: '0.9rem', color: COLORS.darkText }} noWrap>{item.name}</Typography>
-                      <Typography sx={{ color: COLORS.primary, fontWeight: 'bold' }}>{formatCurrency(Number(item.price_crc))}</Typography>
-                      <Typography variant="caption" sx={{ color: COLORS.lightText }}>{item.current_weight_grams}g</Typography>
+                      <Typography sx={{ color: COLORS.primary, fontWeight: 'bold' }}>
+                        {isFixedPrice(item) ? formatCurrency(getDisplayPrice(item)) : `${formatCurrency(getDisplayPrice(item))}/g`}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: COLORS.lightText }}>
+                        {item.current_weight_grams > 0 ? item.current_weight_grams + 'g' : '(sin stock)'}
+                      </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
