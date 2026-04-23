@@ -431,12 +431,24 @@ const isFixedPrice = (item: Item) => {
 
   const addFromDetail = () => {
     if (!detailItem) return;
-    const finalPrice = detailFinalPrice !== null ? detailFinalPrice : Number(detailItem.price_crc) * detailWeight;
+    let finalPrice: number;
+    let quantity: number;
+    
+    if (isFixedPrice(detailItem)) {
+      // Fixed price: use fixed price directly, quantity = 1
+      finalPrice = detailFinalPrice !== null ? detailFinalPrice : getDisplayPrice(detailItem);
+      quantity = 1;
+    } else {
+      // Per-gram price: calculate based on weight
+      finalPrice = detailFinalPrice !== null ? detailFinalPrice : Number(detailItem.price_crc) * detailWeight;
+      quantity = detailWeight;
+    }
+    
     const existing = cart.find(c => c.item.id === detailItem.id);
     if (existing) {
-      setCart(cart.map(c => c.item.id === detailItem.id ? { ...c, quantity: c.quantity + detailWeight, subtotal: c.subtotal + finalPrice } : c));
+      setCart(cart.map(c => c.item.id === detailItem.id ? { ...c, quantity: c.quantity + quantity, subtotal: c.subtotal + finalPrice } : c));
     } else {
-      setCart([...cart, { item: detailItem, quantity: detailWeight, subtotal: finalPrice }]);
+      setCart([...cart, { item: detailItem, quantity, subtotal: finalPrice }]);
     }
     setShowDetailModal(false);
   };
@@ -451,18 +463,24 @@ const isFixedPrice = (item: Item) => {
 
   const addToCart = (item: Item) => {
     const existing = cart.find(c => c.item.id === item.id);
+    const price = isFixedPrice(item) ? getDisplayPrice(item) : Number(item.price_crc);
+    const qty = isFixedPrice(item) ? 1 : 1;
+    
     if (existing) {
-      setCart(cart.map(c => c.item.id === item.id ? { ...c, quantity: c.quantity + 1, subtotal: (c.quantity + 1) * Number(c.item.price_crc) } : c));
+      const newQty = existing.quantity + qty;
+      setCart(cart.map(c => c.item.id === item.id ? { ...c, quantity: newQty, subtotal: newQty * price } : c));
     } else {
-      setCart([...cart, { item, quantity: 1, subtotal: Number(item.price_crc) }]);
+      setCart([...cart, { item, quantity: qty, subtotal: price }]);
     }
   };
 
   const updateQuantity = (itemId: string, delta: number) => {
     setCart(cart.map(c => {
       if (c.item.id === itemId) {
-        const newQty = Math.max(0, c.quantity + delta);
-        return { ...c, quantity: newQty, subtotal: newQty * Number(c.item.price_crc) };
+        const price = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
+        const step = isFixedPrice(c.item) ? 1 : 1;
+        const newQty = Math.max(0, c.quantity + delta * step);
+        return { ...c, quantity: newQty, subtotal: newQty * price };
       }
       return c;
     }).filter(c => c.quantity > 0));
@@ -910,20 +928,33 @@ const isFixedPrice = (item: Item) => {
             {detailItem?.description}
           </Typography>
 
-          <Tooltip title="Ingresa el peso en gramos">
-            <TextField
-              fullWidth
-              label="Peso (gramos)"
-              type="number"
-              value={detailWeight}
-              onChange={(e) => setDetailWeight(Number(e.target.value))}
-              sx={{ mb: 2, bgcolor: 'white' }}
-            />
-          </Tooltip>
+          {detailItem && isFixedPrice(detailItem) ? (
+            <Box sx={{ textAlign: 'center', mb: 2 }}>
+              <Typography variant="h5" sx={{ color: COLORS.primary, fontWeight: 'bold', mb: 1 }}>
+                Precio: {formatCurrency(getDisplayPrice(detailItem))}
+              </Typography>
+              <Typography variant="body2" sx={{ color: COLORS.lightText }}>
+                {detailItem.current_weight_grams > 0 ? `Stock: ${detailItem.current_weight_grams}g` : 'Sin stock'}
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              <Tooltip title="Ingresa el peso en gramos">
+                <TextField
+                  fullWidth
+                  label="Peso (gramos)"
+                  type="number"
+                  value={detailWeight}
+                  onChange={(e) => setDetailWeight(Number(e.target.value))}
+                  sx={{ mb: 2, bgcolor: 'white' }}
+                />
+              </Tooltip>
 
-          <Typography variant="h6" sx={{ color: COLORS.darkText, mb: 1, textAlign: 'center' }}>
-            Precio automático: {formatCurrency(Number(detailItem?.price_crc || 0) * detailWeight)}
-          </Typography>
+              <Typography variant="h6" sx={{ color: COLORS.darkText, mb: 1, textAlign: 'center' }}>
+                Precio automático: {formatCurrency(Number(detailItem?.price_crc || 0) * detailWeight)}
+              </Typography>
+            </>
+          )}
 
           <Tooltip title="Deja vacío para precio automático, o ingresa precio final">
             <TextField
