@@ -7,17 +7,19 @@ import {
   DialogActions, TextField, FormControl, InputLabel, Select, Switch, MenuItem,
   Drawer, List, ListItem, ListItemIcon, ListItemText, Divider, IconButton
 } from '@mui/material';
-import { People, Add, Edit, Delete, Menu as MenuIcon } from '@mui/icons-material';
+import { People, Add, Edit, Delete, Menu as MenuIcon, Dashboard as DashboardIcon, ShoppingCart, Inventory, Settings, Assessment, Devices } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
 
 const COLORS = { primary: '#6B4C9A', drawerWidth: 240 };
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <People />, href: '/' },
-  { id: 'sales', label: 'Sales', icon: <People />, href: '/sales' },
-  { id: 'inventory', label: 'Inventory', icon: <People />, href: '/inventory' },
+  { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, href: '/' },
+  { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
+  { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
   { id: 'users', label: 'Users', icon: <People />, href: '/users' },
-  { id: 'settings', label: 'Settings', icon: <People />, href: '/settings' },
+  { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
+  { id: 'devices', label: 'Devices', icon: <Devices />, href: '/devices' },
+  { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
 ];
 
 export default function UsersPage() {

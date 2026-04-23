@@ -1,31 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Box, Typography, Card, CardContent, TextField, Button, Tabs, Tab, 
-  FormControlLabel, Switch, Drawer, List, ListItem, ListItemIcon, 
-  ListItemText, Divider, IconButton, ListItemButton, Alert, Snackbar
+  FormControlLabel, Switch, Alert, Snackbar, Paper, ListItemButton, Divider
 } from '@mui/material';
 import { Settings as SettingsIcon, Business, Category, Payment, Add, Delete } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Category as CategoryType } from '@/types';
-
-const COLORS = { primary: '#6B4C9A', drawerWidth: 240 };
-
-const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <SettingsIcon />, href: '/' },
-  { id: 'sales', label: 'Sales', icon: <SettingsIcon />, href: '/sales' },
-  { id: 'inventory', label: 'Inventory', icon: <SettingsIcon />, href: '/inventory' },
-  { id: 'users', label: 'Users', icon: <SettingsIcon />, href: '/users' },
-  { id: 'settings', label: 'Settings', icon: <SettingsIcon />, href: '/settings' },
-  { id: 'devices', label: 'Devices', icon: <SettingsIcon />, href: '/devices' },
-];
+import DashboardLayout from '@/components/DashboardLayout';
 
 export default function SettingsPage() {
   const [tab, setTab] = useState(0);
-  const [drawerOpen, setDrawerOpen] = useState(true);
   const [categories, setCategories] = useState<CategoryType[]>([]);
-  const [subcategories, setSubcategories] = useState<CategoryType[]>([]);
+  const [subcategories, setSubcategories] = useState<any[]>([]);
   const [businessSettings, setBusinessSettings] = useState({ 
     business_name: 'Crystal Market', 
     business_email: 'info@crystalmarket.com', 
@@ -53,12 +41,9 @@ export default function SettingsPage() {
     try {
       const { data: business } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'business').single();
       const { data: payments } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'payments').single();
-      
       if (business?.setting_value) setBusinessSettings(business.setting_value);
       if (payments?.setting_value) setPaymentSettings(payments.setting_value);
-    } catch (err) {
-      console.error('Error fetching settings:', err);
-    }
+    } catch (err) { console.error('Error fetching settings:', err); }
   };
 
   const fetchCategories = async () => {
@@ -79,15 +64,11 @@ export default function SettingsPage() {
         setting_value: businessSettings,
         updated_at: new Date().toISOString()
       }, { onConflict: 'setting_key' });
-      
       if (error) throw error;
       setSnackbar({ open: true, message: 'Business settings saved!', severity: 'success' });
     } catch (err) {
-      console.error('Save error:', err);
       setSnackbar({ open: true, message: 'Failed to save settings', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleSavePayments = async () => {
@@ -98,31 +79,21 @@ export default function SettingsPage() {
         setting_value: paymentSettings,
         updated_at: new Date().toISOString()
       }, { onConflict: 'setting_key' });
-      
       if (error) throw error;
       setSnackbar({ open: true, message: 'Payment settings saved!', severity: 'success' });
     } catch (err) {
-      console.error('Save error:', err);
       setSnackbar({ open: true, message: 'Failed to save settings', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleAddCategory = async () => {
     const name = prompt('Category name:');
     if (!name) return;
     try {
-      await supabase.from('categories').insert({ 
-        name, 
-        display_order: categories.length + 1, 
-        is_active: true 
-      });
+      await supabase.from('categories').insert({ name, display_order: categories.length + 1, is_active: true });
       fetchCategories();
       setSnackbar({ open: true, message: 'Category added!', severity: 'success' });
-    } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to add category', severity: 'error' });
-    }
+    } catch (err) { setSnackbar({ open: true, message: 'Failed to add category', severity: 'error' }); }
   };
 
   const handleDeleteCategory = async (id: string) => {
@@ -131,9 +102,7 @@ export default function SettingsPage() {
       await supabase.from('categories').delete().eq('id', id);
       fetchCategories();
       setSnackbar({ open: true, message: 'Category deleted', severity: 'success' });
-    } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to delete', severity: 'error' });
-    }
+    } catch (err) { setSnackbar({ open: true, message: 'Failed to delete', severity: 'error' }); }
   };
 
   const handleAddSubcategory = async (categoryId: string) => {
@@ -141,49 +110,16 @@ export default function SettingsPage() {
     if (!name) return;
     const catSubcats = subcategories.filter(s => s.category_id === categoryId);
     try {
-      await supabase.from('subcategories').insert({ 
-        name, 
-        category_id: categoryId,
-        display_order: catSubcats.length + 1, 
-        is_active: true 
-      });
+      await supabase.from('subcategories').insert({ name, category_id: categoryId, display_order: catSubcats.length + 1, is_active: true });
       fetchSubcategories();
       setSnackbar({ open: true, message: 'Subcategory added!', severity: 'success' });
-    } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to add subcategory', severity: 'error' });
-    }
+    } catch (err) { setSnackbar({ open: true, message: 'Failed to add subcategory', severity: 'error' }); }
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
-      <Drawer variant="permanent" sx={{ width: drawerOpen ? COLORS.drawerWidth : 72, '& .MuiDrawer-paper': { width: drawerOpen ? COLORS.drawerWidth : 72, bgcolor: COLORS.primary, color: 'white' } }}>
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {drawerOpen && <Typography variant="h6" fontWeight="bold">CrystalPOS</Typography>}
-          <IconButton onClick={() => setDrawerOpen(!drawerOpen)} sx={{ color: 'white' }}><SettingsIcon /></IconButton>
-        </Box>
-        <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-        <List>
-          {navItems.map(item => (
-            <ListItem 
-              key={item.id} 
-              component="a" 
-              href={item.href}
-              sx={{ 
-                bgcolor: item.href === '/settings' ? 'rgba(255,255,255,0.15)' : 'transparent', 
-                cursor: 'pointer', 
-                borderRadius: 1, 
-                mx: 1 
-              }}
-            >
-              <ListItemIcon sx={{ color: 'white', minWidth: drawerOpen ? 40 : 'auto' }}>{item.icon}</ListItemIcon>
-              {drawerOpen && <ListItemText primary={item.label} />}
-            </ListItem>
-          ))}
-        </List>
-      </Drawer>
-
-      <Box component="main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
-        <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary, mb: 3 }}>Settings</Typography>
+    <DashboardLayout currentPage="settings">
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h4" fontWeight="bold" sx={{ color: '#6B4C9A', mb: 3 }}>Settings</Typography>
 
         <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3 }}>
           <Tab icon={<Business />} label="Business" />
@@ -195,39 +131,11 @@ export default function SettingsPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>Business Information</Typography>
-              <TextField 
-                fullWidth 
-                label="Business Name" 
-                value={businessSettings.business_name} 
-                onChange={e => setBusinessSettings({ ...businessSettings, business_name: e.target.value })} 
-                sx={{ mb: 2 }} 
-              />
-              <TextField 
-                fullWidth 
-                label="Email" 
-                value={businessSettings.business_email} 
-                onChange={e => setBusinessSettings({ ...businessSettings, business_email: e.target.value })} 
-                sx={{ mb: 2 }} 
-              />
-              <TextField 
-                fullWidth 
-                label="Phone" 
-                value={businessSettings.business_phone} 
-                onChange={e => setBusinessSettings({ ...businessSettings, business_phone: e.target.value })} 
-                sx={{ mb: 2 }} 
-              />
-              <TextField 
-                fullWidth 
-                label="Address" 
-                value={businessSettings.address} 
-                onChange={e => setBusinessSettings({ ...businessSettings, address: e.target.value })} 
-                sx={{ mb: 2 }} 
-              />
-              <Button 
-                variant="contained" 
-                onClick={handleSaveBusiness}
-                disabled={loading}
-              >
+              <TextField fullWidth label="Business Name" value={businessSettings.business_name} onChange={(e) => setBusinessSettings({ ...businessSettings, business_name: e.target.value })} sx={{ mb: 2 }} />
+              <TextField fullWidth label="Email" value={businessSettings.business_email} onChange={(e) => setBusinessSettings({ ...businessSettings, business_email: e.target.value })} sx={{ mb: 2 }} />
+              <TextField fullWidth label="Phone" value={businessSettings.business_phone} onChange={(e) => setBusinessSettings({ ...businessSettings, business_phone: e.target.value })} sx={{ mb: 2 }} />
+              <TextField fullWidth label="Address" value={businessSettings.address} onChange={(e) => setBusinessSettings({ ...businessSettings, address: e.target.value })} sx={{ mb: 2 }} />
+              <Button variant="contained" onClick={handleSaveBusiness} disabled={loading}>
                 {loading ? 'Saving...' : 'Save Business Settings'}
               </Button>
             </CardContent>
@@ -239,8 +147,8 @@ export default function SettingsPage() {
             <CardContent>
               <Typography variant="h6" gutterBottom>Product Categories</Typography>
               {categories.map(cat => (
-                <Box key={cat.id} sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Paper key={cat.id} sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography fontWeight="bold">{cat.name}</Typography>
                     <Box>
                       <Button size="small" onClick={() => handleAddSubcategory(cat.id)}>+</Button>
@@ -248,20 +156,11 @@ export default function SettingsPage() {
                     </Box>
                   </Box>
                   {subcategories.filter(s => s.category_id === cat.id).map(sub => (
-                    <Typography key={sub.id} sx={{ pl: 2, fontSize: '0.9rem', color: 'text.secondary' }}>
-                      - {sub.name}
-                    </Typography>
+                    <Typography key={sub.id} sx={{ pl: 2, fontSize: '0.9rem', color: '#666' }}>- {sub.name}</Typography>
                   ))}
-                </Box>
+                </Paper>
               ))}
-              <Button 
-                variant="contained" 
-                startIcon={<Add />} 
-                onClick={handleAddCategory} 
-                sx={{ mt: 2 }}
-              >
-                Add Category
-              </Button>
+              <Button variant="contained" startIcon={<Add />} onClick={handleAddCategory} sx={{ mt: 2 }}>Add Category</Button>
             </CardContent>
           </Card>
         )}
@@ -270,31 +169,11 @@ export default function SettingsPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>Payment Methods</Typography>
-              <FormControlLabel 
-                control={<Switch checked={paymentSettings.sinpe_enabled} onChange={e => setPaymentSettings({ ...paymentSettings, sinpe_enabled: e.target.checked })} />} 
-                label="SINPE Móvil" 
-                sx={{ display: 'block', mb: 1 }} 
-              />
-              <FormControlLabel 
-                control={<Switch checked={paymentSettings.cash_enabled} onChange={e => setPaymentSettings({ ...paymentSettings, cash_enabled: e.target.checked })} />} 
-                label="Cash" 
-                sx={{ display: 'block', mb: 1 }} 
-              />
-              <FormControlLabel 
-                control={<Switch checked={paymentSettings.card_enabled} onChange={e => setPaymentSettings({ ...paymentSettings, card_enabled: e.target.checked })} />} 
-                label="Card" 
-                sx={{ display: 'block', mb: 1 }} 
-              />
-              <FormControlLabel 
-                control={<Switch checked={paymentSettings.lightning_enabled} onChange={e => setPaymentSettings({ ...paymentSettings, lightning_enabled: e.target.checked })} />} 
-                label="Lightning (Bitcoin)" 
-                sx={{ display: 'block', mb: 2 }} 
-              />
-              <Button 
-                variant="contained" 
-                onClick={handleSavePayments}
-                disabled={loading}
-              >
+              <FormControlLabel control={<Switch checked={paymentSettings.sinpe_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, sinpe_enabled: e.target.checked })} />} label="SINPE Móvil" sx={{ display: 'block', mb: 1 }} />
+              <FormControlLabel control={<Switch checked={paymentSettings.cash_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, cash_enabled: e.target.checked })} />} label="Cash" sx={{ display: 'block', mb: 1 }} />
+              <FormControlLabel control={<Switch checked={paymentSettings.card_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, card_enabled: e.target.checked })} />} label="Card" sx={{ display: 'block', mb: 1 }} />
+              <FormControlLabel control={<Switch checked={paymentSettings.lightning_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, lightning_enabled: e.target.checked })} />} label="Lightning (Bitcoin)" sx={{ display: 'block', mb: 2 }} />
+              <Button variant="contained" onClick={handleSavePayments} disabled={loading}>
                 {loading ? 'Saving...' : 'Save Payment Settings'}
               </Button>
             </CardContent>
@@ -302,13 +181,9 @@ export default function SettingsPage() {
         )}
       </Box>
 
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={3000} 
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
-    </Box>
+    </DashboardLayout>
   );
 }

@@ -9,7 +9,7 @@ import {
   ListItemIcon, ListItemText, Divider, IconButton
 } from '@mui/material';
 import { 
-  ShoppingCart, Receipt, Download, Menu as MenuIcon, Add, Refresh
+  ShoppingCart, Receipt, Download, Menu as MenuIcon, Add, Refresh, Inventory, People, Settings, Dashboard as DashboardIcon, Assessment, Devices
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Sale } from '@/types';
@@ -17,11 +17,13 @@ import { formatCurrency, formatDate } from '@/utils/format';
 
 const COLORS = { primary: '#6B4C9A', drawerWidth: 240 };
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <ShoppingCart />, href: '/' },
+  { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, href: '/' },
   { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
-  { id: 'inventory', label: 'Inventory', icon: <ShoppingCart />, href: '/inventory' },
-  { id: 'users', label: 'Users', icon: <ShoppingCart />, href: '/users' },
-  { id: 'settings', label: 'Settings', icon: <ShoppingCart />, href: '/settings' },
+  { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
+  { id: 'users', label: 'Users', icon: <People />, href: '/users' },
+  { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
+  { id: 'devices', label: 'Devices', icon: <Devices />, href: '/devices' },
+  { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
 ];
 
 export default function SalesPage() {

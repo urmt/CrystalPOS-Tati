@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  Box, Card, CardContent, Typography, Button, IconButton, TextField,
+Box, Card, CardContent, Typography, Button, IconButton, TextField,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
-  Paper, Chip, Grid, LinearProgress, Dialog, DialogTitle, DialogContent, 
+  Paper, Chip, LinearProgress, Dialog, DialogTitle, DialogContent, 
   DialogActions, MenuItem, FormControl, InputLabel, Select, Drawer, List, 
   ListItem, ListItemIcon, ListItemText, Divider, Checkbox, ListItemButton
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import { 
   Inventory as InventoryIcon, Add, Edit, Delete, Download, Menu as MenuIcon, 
-  Search, Refresh, Image as ImageIcon, Category as CategoryIcon
+  Search, Refresh, Image as ImageIcon, Category as CategoryIcon,
+  Dashboard as DashboardIcon, ShoppingCart, People, Settings, Assessment, Devices
 } from '@mui/icons-material';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { Item, Category as CategoryType, Subcategory } from '@/types';
@@ -18,11 +20,13 @@ import { formatCurrency, getStockStatus, getStockStatusLabel } from '@/utils/for
 
 const COLORS = { primary: '#6B4C9A', drawerWidth: 240 };
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <InventoryIcon />, href: '/' },
-  { id: 'sales', label: 'Sales', icon: <InventoryIcon />, href: '/sales' },
+  { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, href: '/' },
+  { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
   { id: 'inventory', label: 'Inventory', icon: <InventoryIcon />, href: '/inventory' },
-  { id: 'users', label: 'Users', icon: <InventoryIcon />, href: '/users' },
-  { id: 'settings', label: 'Settings', icon: <InventoryIcon />, href: '/settings' },
+  { id: 'users', label: 'Users', icon: <People />, href: '/users' },
+  { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
+  { id: 'devices', label: 'Devices', icon: <Devices />, href: '/devices' },
+  { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
 ];
 
 export default function InventoryPage() {
@@ -40,10 +44,17 @@ export default function InventoryPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [form, setForm] = useState({ 
-    name: '', sku: '', price_crc: 0, current_weight_grams: 0, 
-    min_threshold_grams: 100, category_id: '', subcategory_ids: [] as string[],
+    name: '', sku: '', cost_per_gram: 0, suggested_price_crc: 0, price_crc: 0, 
+    current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_ids: [] as string[],
     image_url: '', description: '' 
   });
+
+  const [categoryForm, setCategoryForm] = useState({ name: '', name_es: '', description: '', description_es: '' });
+  const [subcategoryForm, setSubcategoryForm] = useState({ name: '', name_es: '', description: '', description_es: '', category_id: '' });
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CategoryType | null>(null);
+  const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -117,54 +128,93 @@ export default function InventoryPage() {
     }
   };
 
-  const handleCategorySave = async (cat?: CategoryType) => {
+  const handleCategorySave = async () => {
     try {
-      const name = cat ? prompt('New name:', cat.name) : prompt('Category name:');
-      if (!name) return;
+      const data = {
+        name: categoryForm.name,
+        name_es: categoryForm.name_es || null,
+        description: categoryForm.description || null,
+        description_es: categoryForm.description_es || null,
+        display_order: categories.length + 1,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      };
       
-      if (cat) {
-        const { error } = await supabaseAdmin.from('categories').update({ name }).eq('id', cat.id);
+      if (editingCategory) {
+        const { error } = await supabaseAdmin.from('categories').update(data).eq('id', editingCategory.id);
         if (error) throw error;
       } else {
         const { error } = await supabaseAdmin.from('categories').insert({ 
           id: crypto.randomUUID(), 
-          name, 
-          display_order: categories.length + 1,
-          is_active: true,
-          created_at: new Date().toISOString() 
+          ...data,
+          created_at: new Date().toISOString()
         });
         if (error) throw error;
       }
+      setCategoryDialogOpen(false);
+      setCategoryForm({ name: '', name_es: '', description: '', description_es: '' });
+      setEditingCategory(null);
       fetchData();
     } catch (e: any) {
       alert('Error: ' + e.message);
     }
   };
 
-  const handleSubcategorySave = async (sub?: Subcategory) => {
+  const handleSubcategorySave = async () => {
     try {
-      const name = sub ? prompt('New name:', sub.name) : prompt('Subcategory name:');
-      const catId = prompt('Category ID (copy from Categories tab):');
-      if (!name || !catId) return;
+      if (!subcategoryForm.category_id) { alert('Please select a category'); return; }
       
-      if (sub) {
-        const { error } = await supabaseAdmin.from('subcategories').update({ name, category_id: catId }).eq('id', sub.id);
+      const data = {
+        name: subcategoryForm.name,
+        name_es: subcategoryForm.name_es || null,
+        description: subcategoryForm.description || null,
+        description_es: subcategoryForm.description_es || null,
+        category_id: subcategoryForm.category_id,
+        display_order: subcategories.filter(s => s.category_id === subcategoryForm.category_id).length + 1,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      };
+      
+      if (editingSubcategory) {
+        const { error } = await supabaseAdmin.from('subcategories').update(data).eq('id', editingSubcategory.id);
         if (error) throw error;
       } else {
         const { error } = await supabaseAdmin.from('subcategories').insert({ 
           id: crypto.randomUUID(), 
-          name, 
-          category_id: catId,
-          display_order: subcategories.filter(s => s.category_id === catId).length + 1,
-          is_active: true,
-          created_at: new Date().toISOString() 
+          ...data,
+          created_at: new Date().toISOString()
         });
         if (error) throw error;
       }
+      setSubcategoryDialogOpen(false);
+      setSubcategoryForm({ name: '', name_es: '', description: '', description_es: '', category_id: '' });
+      setEditingSubcategory(null);
       fetchData();
     } catch (e: any) {
       alert('Error: ' + e.message);
     }
+  };
+
+  const openCategoryDialog = (cat?: CategoryType) => {
+    if (cat) {
+      setEditingCategory(cat);
+      setCategoryForm({ name: cat.name, name_es: (cat as any).name_es || '', description: cat.description || '', description_es: (cat as any).description_es || '' });
+    } else {
+      setEditingCategory(null);
+      setCategoryForm({ name: '', name_es: '', description: '', description_es: '' });
+    }
+    setCategoryDialogOpen(true);
+  };
+
+  const openSubcategoryDialog = (sub?: Subcategory) => {
+    if (sub) {
+      setEditingSubcategory(sub);
+      setSubcategoryForm({ name: sub.name, name_es: (sub as any).name_es || '', description: sub.description || '', description_es: (sub as any).description_es || '', category_id: sub.category_id });
+    } else {
+      setEditingSubcategory(null);
+      setSubcategoryForm({ name: '', name_es: '', description: '', description_es: '', category_id: '' });
+    }
+    setSubcategoryDialogOpen(true);
   };
 
   const handleDelete = async (item: Item) => {
@@ -199,7 +249,7 @@ export default function InventoryPage() {
           <Typography variant="h4" sx={{ fontWeight: 'bold', color: COLORS.primary }}>Inventory</Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>Export</Button>
-            <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_ids: [], image_url: '', description: '' }); setDialogOpen(true); }}>
+            <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', cost_per_gram: 0, suggested_price_crc: 0, price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_ids: [], image_url: '', description: '' }); setDialogOpen(true); }}>
               Add Item
             </Button>
           </Box>
@@ -271,7 +321,7 @@ export default function InventoryPage() {
                         <TableCell align="right">{item.current_weight_grams}g</TableCell>
                         <TableCell><Chip label={getStockStatusLabel(item.current_weight_grams || 0, item.min_threshold_grams || 100)} size="small" color={status} /></TableCell>
                         <TableCell>
-                          <IconButton size="small" onClick={() => { setEditItem(item); setForm({ name: item.name, sku: item.sku, price_crc: item.price_crc, current_weight_grams: item.current_weight_grams, min_threshold_grams: item.min_threshold_grams, category_id: item.category_id || '', subcategory_ids: item.subcategory_id ? [item.subcategory_id] : [], image_url: item.image_url || '', description: item.description || '' }); setDialogOpen(true); }}>
+                          <IconButton size="small" onClick={() => { setEditItem(item); setForm({ name: item.name, sku: item.sku, cost_per_gram: item.cost_per_gram || 0, suggested_price_crc: (item as any).suggested_price_crc || 0, price_crc: item.price_crc, current_weight_grams: item.current_weight_grams, min_threshold_grams: item.min_threshold_grams, category_id: item.category_id || '', subcategory_ids: item.subcategory_id ? [item.subcategory_id] : [], image_url: item.image_url || '', description: item.description || '' }); setDialogOpen(true); }}>
                             <Edit fontSize="small" />
                           </IconButton>
                           <IconButton size="small" color="error" onClick={() => handleDelete(item)}><Delete fontSize="small" /></IconButton>
@@ -290,15 +340,15 @@ export default function InventoryPage() {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h6">Categories</Typography>
-                <Button variant="contained" startIcon={<Add />} onClick={() => handleCategorySave()}>Add Category</Button>
+                <Button variant="contained" startIcon={<Add />} onClick={() => openCategoryDialog()}>Add Category</Button>
               </Box>
               {categories.map(cat => (
                 <ListItem key={cat.id} secondaryAction={
                   <>
-                    <IconButton onClick={() => handleCategorySave(cat)}><Edit /></IconButton>
+                    <IconButton onClick={() => openCategoryDialog(cat)}><Edit /></IconButton>
                   </>
                 }>
-                  <ListItemText primary={cat.name} secondary={`Order: ${cat.display_order}`} />
+                  <ListItemText primary={cat.name} secondary={(cat as any).name_es ? `${cat.name} / ${(cat as any).name_es}` : `Order: ${cat.display_order}`} />
                 </ListItem>
               ))}
             </CardContent>
@@ -310,17 +360,17 @@ export default function InventoryPage() {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h6">Subcategories</Typography>
-                <Button variant="contained" startIcon={<Add />} onClick={() => handleSubcategorySave()}>Add Subcategory</Button>
+                <Button variant="contained" startIcon={<Add />} onClick={() => openSubcategoryDialog()}>Add Subcategory</Button>
               </Box>
               {subcategories.map(sub => (
                 <ListItem key={sub.id} secondaryAction={
                   <>
-                    <IconButton onClick={() => handleSubcategorySave(sub)}><Edit /></IconButton>
+                    <IconButton onClick={() => openSubcategoryDialog(sub)}><Edit /></IconButton>
                   </>
                 }>
                   <ListItemText 
                     primary={sub.name} 
-                    secondary={`Category: ${categories.find(c => c.id === sub.category_id)?.name || sub.category_id}`} 
+                    secondary={(sub as any).name_es ? `${sub.name} / ${(sub as any).name_es} - Category: ${categories.find(c => c.id === sub.category_id)?.name || sub.category_id}` : `Category: ${categories.find(c => c.id === sub.category_id)?.name || sub.category_id}`} 
                   />
                 </ListItem>
               ))}
@@ -335,7 +385,7 @@ export default function InventoryPage() {
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Image Upload */}
-            <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', gap: 2, alignItems: 'center' }}>
               <Box 
                 sx={{ width: 150, height: 150, bgcolor: '#f5f5f5', borderRadius: 2, 
                   display: 'flex', alignItems: 'center', justifyContent: 'center', 
@@ -348,6 +398,16 @@ export default function InventoryPage() {
                   <ImageIcon sx={{ fontSize: 48, color: '#ccc' }} />
                 )}
               </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Button size="small" variant="outlined" onClick={() => fileInputRef.current?.click()}>
+                  {form.image_url ? 'Change Image' : 'Add Image'}
+                </Button>
+                {form.image_url && (
+                  <Button size="small" color="error" variant="outlined" onClick={() => setForm({ ...form, image_url: '' })}>
+                    Remove Image
+                  </Button>
+                )}
+              </Box>
               <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleImageUpload} />
             </Grid>
             
@@ -358,7 +418,13 @@ export default function InventoryPage() {
               <TextField fullWidth label="SKU" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} required />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Price (CRC)" type="number" value={form.price_crc} onChange={e => setForm({ ...form, price_crc: Number(e.target.value) })} required />
+              <TextField fullWidth label="Cost per gram (CRC)" type="number" value={form.cost_per_gram} onChange={e => setForm({ ...form, cost_per_gram: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Suggested Price per gram (CRC)" type="number" value={form.suggested_price_crc} onChange={e => setForm({ ...form, suggested_price_crc: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Price (CRC)/g" type="number" value={form.price_crc} onChange={e => setForm({ ...form, price_crc: Number(e.target.value) })} required />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Current Weight (g)" type="number" value={form.current_weight_grams} onChange={e => setForm({ ...form, current_weight_grams: Number(e.target.value) })} required />
@@ -382,6 +448,42 @@ export default function InventoryPage() {
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSave}>Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Category Dialog */}
+      <Dialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
+        <DialogContent>
+          <TextField fullWidth label="Name (English)" value={categoryForm.name} onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })} sx={{ mb: 2, mt: 1 }} required />
+          <TextField fullWidth label="Nombre (Español)" value={categoryForm.name_es} onChange={e => setCategoryForm({ ...categoryForm, name_es: e.target.value })} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Description (English)" value={categoryForm.description} onChange={e => setCategoryForm({ ...categoryForm, description: e.target.value })} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Descripción (Español)" value={categoryForm.description_es} onChange={e => setCategoryForm({ ...categoryForm, description_es: e.target.value })} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCategoryDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleCategorySave}>Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Subcategory Dialog */}
+      <Dialog open={subcategoryDialogOpen} onClose={() => setSubcategoryDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingSubcategory ? 'Edit Subcategory' : 'Add Subcategory'}</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mb: 2, mt: 1 }}>
+            <InputLabel>Category</InputLabel>
+            <Select value={subcategoryForm.category_id} label="Category" onChange={e => setSubcategoryForm({ ...subcategoryForm, category_id: e.target.value })}>
+              {categories.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField fullWidth label="Name (English)" value={subcategoryForm.name} onChange={e => setSubcategoryForm({ ...subcategoryForm, name: e.target.value })} sx={{ mb: 2 }} required />
+          <TextField fullWidth label="Nombre (Español)" value={subcategoryForm.name_es} onChange={e => setSubcategoryForm({ ...subcategoryForm, name_es: e.target.value })} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Description (English)" value={subcategoryForm.description} onChange={e => setSubcategoryForm({ ...subcategoryForm, description: e.target.value })} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Descripción (Español)" value={subcategoryForm.description_es} onChange={e => setSubcategoryForm({ ...subcategoryForm, description_es: e.target.value })} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubcategoryDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSubcategorySave}>Save</Button>
         </DialogActions>
       </Dialog>
     </Box>

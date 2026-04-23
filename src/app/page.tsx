@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { 
   Box, Card, CardContent, Typography, Button, IconButton, Select, MenuItem, 
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, 
-  TableHead, TableRow, Paper, Chip, Grid, LinearProgress, Drawer, List, ListItem, ListItemIcon, ListItemText, Divider
+  TableHead, TableRow, Paper, Chip, LinearProgress, Drawer, List, ListItem, ListItemIcon, ListItemText, Divider
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import { 
   Dashboard as DashboardIcon,
   ShoppingCart,
@@ -38,6 +39,7 @@ const navItems = [
   { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
   { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
   { id: 'users', label: 'Users', icon: <People />, href: '/users' },
+  { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
   { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
 ];
 

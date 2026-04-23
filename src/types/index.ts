@@ -18,7 +18,9 @@ export interface User {
 export interface Category {
   id: string;
   name: string;
+  name_es: string | null;
   description: string | null;
+  description_es: string | null;
   display_order: number;
   is_active: boolean;
   created_at: string;
@@ -29,7 +31,9 @@ export interface Subcategory {
   id: string;
   category_id: string;
   name: string;
+  name_es: string | null;
   description: string | null;
+  description_es: string | null;
   display_order: number;
   is_active: boolean;
   created_at: string;
@@ -40,10 +44,13 @@ export interface Item {
   id: string;
   sku: string;
   name: string;
+  name_es: string | null;
   category_id: string | null;
   subcategory_id: string | null;
   description: string | null;
+  description_es: string | null;
   price_crc: number;
+  suggested_price_crc: number;
   current_weight_grams: number;
   min_threshold_grams: number;
   depletion_rate_grams_per_day: number;
