@@ -355,10 +355,10 @@ export default function POSPage() {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       setIsIdle(true);
-      // Start slideshow
+      // Start slideshow - top 10 items, 6 seconds each
       slideIntervalRef.current = setInterval(() => {
-        setGalleryIndex(prev => (prev + 1) % items.length);
-      }, 4000);
+        setGalleryIndex(prev => (prev + 1) % Math.min(sortedItems.length, 10));
+      }, 6000);
     }, 60000); // 60 seconds
   }, [items.length, manualSlideshow]);
 
@@ -373,12 +373,12 @@ export default function POSPage() {
         slideIntervalRef.current = null;
       }
     } else {
-      // Start manual slideshow
+      // Start manual slideshow - top 10 items, 6 seconds each
       setManualSlideshow(true);
       setIsIdle(true);
       slideIntervalRef.current = setInterval(() => {
-        setGalleryIndex(prev => (prev + 1) % items.length);
-      }, 4000);
+        setGalleryIndex(prev => (prev + 1) % Math.min(sortedItems.length, 10));
+      }, 6000);
     }
   }, [manualSlideshow, items.length]);
 

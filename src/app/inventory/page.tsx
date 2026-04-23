@@ -10,7 +10,7 @@ Box, Card, CardContent, Typography, Button, IconButton, TextField,
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import { 
-  Inventory as InventoryIcon, Add, Edit, Delete, Download, Menu as MenuIcon, 
+  Inventory as InventoryIcon, Add, Edit, Delete, DeleteSweep, Download, Menu as MenuIcon, 
   Search, Refresh, Image as ImageIcon, Category as CategoryIcon,
   Dashboard as DashboardIcon, ShoppingCart, People, Settings, Assessment, Devices,
   Save
@@ -265,6 +265,20 @@ export default function InventoryPage() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'inventory.csv'; a.click();
   };
 
+  const handleDeleteAllContents = async () => {
+    if (!confirm('Are you sure you want to DELETE ALL ITEMS? This cannot be undone. Categories and Subcategories will be preserved.')) return;
+    if (!confirm('This will permanently delete all items from the database. Continue?')) return;
+    try {
+      const { error } = await supabaseAdmin.from('items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      alert('All items deleted successfully!');
+      fetchData();
+    } catch (e: any) {
+      console.error(e);
+      alert('Error deleting items: ' + e.message);
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
       <Drawer variant="permanent" sx={{ width: drawerOpen ? COLORS.drawerWidth : 72, '& .MuiDrawer-paper': { width: drawerOpen ? COLORS.drawerWidth : 72, bgcolor: COLORS.primary, color: 'white', transition: 'width 0.2s' } }}>
@@ -281,6 +295,7 @@ export default function InventoryPage() {
           <Typography variant="h4" sx={{ fontWeight: 'bold', color: COLORS.primary }}>Inventory</Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>Export</Button>
+            <Button variant="outlined" color="error" startIcon={<DeleteSweep />} onClick={handleDeleteAllContents}>Delete All Contents</Button>
             <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', cost_per_gram: 0, suggested_price_crc: 0, price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', image_url: '', description: '' }); setDialogOpen(true); }}>
               Add Item
             </Button>
