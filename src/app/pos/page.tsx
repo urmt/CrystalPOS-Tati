@@ -19,7 +19,7 @@ import Grid from '@mui/material/Grid2';
 import { 
   ShoppingCart, Inventory as InventoryIcon, Dashboard as DashboardIcon,
   Settings, Delete, Payment, WifiOff, Sync, Add, CameraAlt, Close,
-  ChevronLeft, ChevronRight, CollectionsBookmark
+  ChevronLeft, ChevronRight, CollectionsBookmark, PlayArrow, Pause
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { logErrorAndAlert } from '@/lib/telegram';
@@ -233,6 +233,7 @@ export default function POSPage() {
   const [detailWeight, setDetailWeight] = useState(100);
   const [detailFinalPrice, setDetailFinalPrice] = useState<number | null>(null);
   const [showHelpTooltips, setShowHelpTooltips] = useState(true);
+  const [manualSlideshow, setManualSlideshow] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -343,6 +344,9 @@ export default function POSPage() {
 
   // Idle detection - reset timer on any interaction
   const resetIdleTimer = useCallback(() => {
+    // Don't reset if manual slideshow is active
+    if (manualSlideshow) return;
+    
     setIsIdle(false);
     if (slideIntervalRef.current) {
       clearInterval(slideIntervalRef.current);
@@ -353,10 +357,30 @@ export default function POSPage() {
       setIsIdle(true);
       // Start slideshow
       slideIntervalRef.current = setInterval(() => {
-        setGalleryIndex(prev => (prev + 1) % sortedItems.length);
+        setGalleryIndex(prev => (prev + 1) % items.length);
       }, 4000);
     }, 60000); // 60 seconds
-  }, []);
+  }, [items.length, manualSlideshow]);
+
+  // Toggle slideshow manually
+  const toggleSlideshow = useCallback(() => {
+    if (manualSlideshow) {
+      // Stop manual slideshow
+      setManualSlideshow(false);
+      setIsIdle(false);
+      if (slideIntervalRef.current) {
+        clearInterval(slideIntervalRef.current);
+        slideIntervalRef.current = null;
+      }
+    } else {
+      // Start manual slideshow
+      setManualSlideshow(true);
+      setIsIdle(true);
+      slideIntervalRef.current = setInterval(() => {
+        setGalleryIndex(prev => (prev + 1) % items.length);
+      }, 4000);
+    }
+  }, [manualSlideshow, items.length]);
 
   // Attach global idle detection
   useEffect(() => {
@@ -580,6 +604,14 @@ export default function POSPage() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {!isOnline && <WifiOff color="warning" />}
             {syncing && <Sync className="spin" />}
+            <Tooltip title={manualSlideshow ? "Detener presentación" : "Iniciar presentación"} arrow>
+              <IconButton 
+                onClick={toggleSlideshow}
+                sx={{ color: manualSlideshow ? '#D4AF37' : 'white' }}
+              >
+                {manualSlideshow ? <Pause /> : <PlayArrow />}
+              </IconButton>
+            </Tooltip>
             <Button 
               size="small" 
               variant="outlined"
@@ -603,7 +635,7 @@ export default function POSPage() {
       </AppBar>
 
       <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-        {/* GALLERY VIEW - Full screen carousel */}
+        {/* GALLERY VIEW - Full screen carousel for visual advertising */}
         {currentView === 'gallery' && sortedItems.length > 0 && (
           <Box 
             ref={carouselRef}
@@ -614,92 +646,80 @@ export default function POSPage() {
               height: '100%', 
               display: 'flex', 
               flexDirection: 'column',
-              touchAction: 'pan-y'
+              touchAction: 'pan-y',
+              pb: 8
             }}
           >
-            <Tooltip title={showHelpTooltips ? "Desliza ← → para ver más piedras. Toca 2 veces para ver detalles." : ""} arrow placement="top">
-              <Box sx={{ textAlign: 'center', mb: 1 }}>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
-                  {isIdle ? '🎬 Modo presentación' : '👆 Desliza o toca para navegar'}
-                </Typography>
-              </Box>
-            </Tooltip>
-            
-            {/* Main Image Carousel */}
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            {/* Main Image Carousel - FULL SCREEN */}
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', px: 1 }}>
               {/* Left Arrow */}
               <IconButton 
                 onClick={() => handleGallerySwipe('prev')}
                 sx={{ 
                   position: 'absolute', 
-                  left: 10, 
+                  left: 5, 
                   zIndex: 10, 
-                  bgcolor: 'rgba(255,255,255,0.3)',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.5)' }
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.4)' }
                 }}
               >
-                <ChevronLeft sx={{ fontSize: 40, color: 'white' }} />
+                <ChevronLeft sx={{ fontSize: 50, color: 'white' }} />
               </IconButton>
 
-              {/* Item Card */}
+              {/* Item Card - FULL SCREEN */}
               <Box 
                 onClick={() => handleGalleryTap(sortedItems[galleryIndex])}
                 onDoubleClick={() => handleGalleryTap(sortedItems[galleryIndex])}
                 sx={{ 
-                  width: '85%', 
-                  maxWidth: 500,
+                  width: '100%', 
+                  maxWidth: '90vw',
+                  height: '100%',
                   textAlign: 'center',
                   cursor: 'pointer',
-                  animation: isIdle ? 'pulse 2s infinite' : 'none',
+                  animation: isIdle ? 'pulse 3s infinite' : 'none',
                   '@keyframes pulse': {
                     '0%, 100%': { transform: 'scale(1)' },
-                    '50%': { transform: 'scale(1.02)' }
+                    '50%': { transform: 'scale(1.01)' }
                   }
                 }}
               >
+                {/* Image - ALMOST FULL SCREEN */}
                 <Box sx={{ 
                   width: '100%', 
-                  height: 300, 
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                  borderRadius: 4,
+                  height: '70vh', 
+                  bgcolor: 'rgba(255,255,255,0.05)',
+                  borderRadius: 3,
                   overflow: 'hidden',
-                  border: '3px solid rgba(212, 175, 55, 0.5)',
+                  border: '2px solid rgba(212, 175, 55, 0.3)',
                   mb: 2
                 }}>
                   {sortedItems[galleryIndex].image_url ? (
                     <img 
                       src={sortedItems[galleryIndex].image_url} 
                       alt={sortedItems[galleryIndex].name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                     />
                   ) : (
                     <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '4rem' }}>💎</Typography>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '6rem' }}>💎</Typography>
                     </Box>
                   )}
                 </Box>
                 
-                <Typography variant="h5" sx={{ color: '#D4AF37', fontWeight: 'bold', mb: 0.5, textShadow: '0 0 10px rgba(0,0,0,0.5)' }}>
+                <Typography variant="h4" sx={{ color: '#D4AF37', fontWeight: 'bold', mb: 0.5, textShadow: '0 0 10px rgba(0,0,0,0.7)' }}>
                   {sortedItems[galleryIndex].name}
                 </Typography>
                 {(sortedItems[galleryIndex] as any).name_es && (
-                  <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.8)', mb: 1 }}>
+                  <Typography variant="h5" sx={{ color: 'rgba(255,255,255,0.9)', mb: 1 }}>
                     {(sortedItems[galleryIndex] as any).name_es}
                   </Typography>
                 )}
-                <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold', mb: 0.5 }}>
+                <Typography variant="h3" sx={{ color: '#fff', fontWeight: 'bold', mb: 0.5, textShadow: '0 0 15px rgba(0,0,0,0.5)' }}>
                   {formatCurrency(Number(sortedItems[galleryIndex].price_crc))}/g
                 </Typography>
-                <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)' }}>
                   📦 {sortedItems[galleryIndex].current_weight_grams}g disponibles
                 </Typography>
-                
-                {/* Help text */}
-                <Box sx={{ mt: 2, p: 1, bgcolor: 'rgba(212, 175, 55, 0.2)', borderRadius: 2 }}>
-                  <Typography variant="caption" sx={{ color: '#D4AF37' }}>
-                    👆 Toca dos veces para añadir al carrito
-                  </Typography>
-                </Box>
               </Box>
 
               {/* Right Arrow */}
@@ -707,26 +727,26 @@ export default function POSPage() {
                 onClick={() => handleGallerySwipe('next')}
                 sx={{ 
                   position: 'absolute', 
-                  right: 10, 
+                  right: 5, 
                   zIndex: 10, 
-                  bgcolor: 'rgba(255,255,255,0.3)',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.5)' }
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.4)' }
                 }}
               >
-                <ChevronRight sx={{ fontSize: 40, color: 'white' }} />
+                <ChevronRight sx={{ fontSize: 50, color: 'white' }} />
               </IconButton>
             </Box>
 
             {/* Dot Indicators */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2, flexWrap: 'wrap', maxWidth: 400, mx: 'auto' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1, flexWrap: 'wrap', px: 2 }}>
               {sortedItems.slice(0, 10).map((_, idx) => (
                 <Box 
                   key={idx}
                   onClick={() => { resetIdleTimer(); setGalleryIndex(idx); }}
                   sx={{ 
-                    width: idx === galleryIndex ? 24 : 8, 
-                    height: 8, 
-                    borderRadius: 4, 
+                    width: idx === galleryIndex ? 24 : 10, 
+                    height: 10, 
+                    borderRadius: 5, 
                     bgcolor: idx === galleryIndex ? '#D4AF37' : 'rgba(255,255,255,0.3)',
                     cursor: 'pointer',
                     transition: 'all 0.3s'
