@@ -68,6 +68,7 @@ export interface Sale {
   sale_date: string;
   items_sold: { item_id: string; sku: string; name: string; qty_grams: number; price: number }[] | null;
   subtotal_crc: number;
+  discount_crc: number;
   tax_crc: number;
   total_crc: number;
   payment_method: string | null;

@@ -6,13 +6,14 @@ Box, Card, CardContent, Typography, Button, IconButton, TextField,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
   Paper, Chip, LinearProgress, Dialog, DialogTitle, DialogContent, 
   DialogActions, MenuItem, FormControl, InputLabel, Select, Drawer, List, 
-  ListItem, ListItemIcon, ListItemText, Divider, Checkbox, ListItemButton
+  ListItem, ListItemIcon, ListItemText, Divider, Checkbox, ListItemButton, Tooltip
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import { 
   Inventory as InventoryIcon, Add, Edit, Delete, Download, Menu as MenuIcon, 
   Search, Refresh, Image as ImageIcon, Category as CategoryIcon,
-  Dashboard as DashboardIcon, ShoppingCart, People, Settings, Assessment, Devices
+  Dashboard as DashboardIcon, ShoppingCart, People, Settings, Assessment, Devices,
+  Save
 } from '@mui/icons-material';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { Item, Category as CategoryType, Subcategory } from '@/types';
@@ -55,6 +56,37 @@ export default function InventoryPage() {
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryType | null>(null);
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const [cellValue, setCellValue] = useState('');
+
+  const handleCellClick = (id: string, field: string, value: any) => {
+    setEditingCell({ id, field });
+    setCellValue(value?.toString() || '');
+  };
+
+  const handleCellSave = async (itemId: string, field: string) => {
+    try {
+      let value: any = cellValue;
+      if (['price_crc', 'cost_per_gram', 'suggested_price_crc', 'current_weight_grams', 'min_threshold_grams'].includes(field)) {
+        value = Number(cellValue) || 0;
+      }
+      const { error } = await supabaseAdmin.from('items').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', itemId);
+      if (error) throw error;
+      fetchData();
+    } catch (e: any) {
+      console.error(e);
+      alert('Error: ' + e.message);
+    }
+    setEditingCell(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, itemId: string, field: string) => {
+    if (e.key === 'Enter') {
+      handleCellSave(itemId, field);
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -294,7 +326,7 @@ export default function InventoryPage() {
                     <TableCell>SKU</TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Category</TableCell>
-                    <TableCell align="right">Price</TableCell>
+                    <TableCell align="right">Price/g</TableCell>
                     <TableCell align="right">Weight</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Actions</TableCell>
@@ -314,11 +346,60 @@ export default function InventoryPage() {
                             </Box>
                           )}
                         </TableCell>
-                        <TableCell><Typography fontFamily="monospace" fontSize="small">{item.sku}</Typography></TableCell>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>{categories.find(c => c.id === item.category_id)?.name || '-'}</TableCell>
-                        <TableCell align="right">{formatCurrency(item.price_crc)}</TableCell>
-                        <TableCell align="right">{item.current_weight_grams}g</TableCell>
+                        <TableCell 
+                          onClick={() => handleCellClick(item.id, 'sku', item.sku)}
+                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' } }}
+                        >
+                          {editingCell?.id === item.id && editingCell?.field === 'sku' ? (
+                            <TextField size="small" value={cellValue} onChange={(e) => setCellValue(e.target.value)} onBlur={() => handleCellSave(item.id, 'sku')} onKeyDown={(e) => handleKeyDown(e, item.id, 'sku')} autoFocus sx={{ width: 100 }} />
+                          ) : (
+                            <Typography fontFamily="monospace" fontSize="small">{item.sku}</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell 
+                          onClick={() => handleCellClick(item.id, 'name', item.name)}
+                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' }, minWidth: 150 }}
+                        >
+                          {editingCell?.id === item.id && editingCell?.field === 'name' ? (
+                            <TextField size="small" value={cellValue} onChange={(e) => setCellValue(e.target.value)} onBlur={() => handleCellSave(item.id, 'name')} onKeyDown={(e) => handleKeyDown(e, item.id, 'name')} autoFocus fullWidth />
+                          ) : item.name}
+                        </TableCell>
+                        <TableCell 
+                          onClick={() => handleCellClick(item.id, 'category_id', item.category_id)}
+                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' }, minWidth: 120 }}
+                        >
+                          {editingCell?.id === item.id && editingCell?.field === 'category_id' ? (
+                            <FormControl size="small" fullWidth>
+                              <Select value={cellValue} onChange={(e) => { handleCellSave(item.id, 'category_id'); }} autoFocus>
+                                {categories.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                              </Select>
+                            </FormControl>
+                          ) : (
+                            categories.find(c => c.id === item.category_id)?.name || '-'
+                          )}
+                        </TableCell>
+                        <TableCell 
+                          align="right"
+                          onClick={() => handleCellClick(item.id, 'price_crc', item.price_crc)}
+                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' } }}
+                        >
+                          {editingCell?.id === item.id && editingCell?.field === 'price_crc' ? (
+                            <TextField size="small" type="number" value={cellValue} onChange={(e) => setCellValue(e.target.value)} onBlur={() => handleCellSave(item.id, 'price_crc')} onKeyDown={(e) => handleKeyDown(e, item.id, 'price_crc')} autoFocus sx={{ width: 80 }} />
+                          ) : (
+                            formatCurrency(item.price_crc)
+                          )}
+                        </TableCell>
+                        <TableCell 
+                          align="right"
+                          onClick={() => handleCellClick(item.id, 'current_weight_grams', item.current_weight_grams)}
+                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' } }}
+                        >
+                          {editingCell?.id === item.id && editingCell?.field === 'current_weight_grams' ? (
+                            <TextField size="small" type="number" value={cellValue} onChange={(e) => setCellValue(e.target.value)} onBlur={() => handleCellSave(item.id, 'current_weight_grams')} onKeyDown={(e) => handleKeyDown(e, item.id, 'current_weight_grams')} autoFocus sx={{ width: 80 }} />
+                          ) : (
+                            `${item.current_weight_grams}g`
+                          )}
+                        </TableCell>
                         <TableCell><Chip label={getStockStatusLabel(item.current_weight_grams || 0, item.min_threshold_grams || 100)} size="small" color={status} /></TableCell>
                         <TableCell>
                           <IconButton size="small" onClick={() => { setEditItem(item); setForm({ name: item.name, sku: item.sku, cost_per_gram: item.cost_per_gram || 0, suggested_price_crc: (item as any).suggested_price_crc || 0, price_crc: item.price_crc, current_weight_grams: item.current_weight_grams, min_threshold_grams: item.min_threshold_grams, category_id: item.category_id || '', subcategory_ids: item.subcategory_id ? [item.subcategory_id] : [], image_url: item.image_url || '', description: item.description || '' }); setDialogOpen(true); }}>

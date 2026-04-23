@@ -1,23 +1,25 @@
 // =============================================================================
 // IPAD POS PAGE (PWA)
 // /pos route - Works offline, auto-syncs when online
-// Version: 1.5 - Crystal animated theme
+// Version: 1.6 - Gallery View with Carousel + Idle Detection + Spanish Help
 // =============================================================================
 
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  Box, Typography, Grid, Card, CardContent, Button, TextField, 
+  Box, Typography, Card, CardContent, Button, TextField, 
   IconButton, Badge, Divider, List, ListItem, ListItemText, 
   Paper, CircularProgress, BottomNavigation,
   BottomNavigationAction, AppBar, Toolbar, Radio, RadioGroup,
   FormControlLabel, FormControl, Dialog, DialogTitle, 
-  DialogContent, DialogActions, Select, MenuItem, InputLabel, Chip
+  DialogContent, DialogActions, Select, MenuItem, InputLabel, Chip, Tooltip
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import { 
   ShoppingCart, Inventory as InventoryIcon, Dashboard as DashboardIcon,
-  Settings, Delete, Payment, WifiOff, Sync, Add, CameraAlt, Close
+  Settings, Delete, Payment, WifiOff, Sync, Add, CameraAlt, Close,
+  ChevronLeft, ChevronRight, CollectionsBookmark
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { logErrorAndAlert } from '@/lib/telegram';
@@ -180,7 +182,7 @@ const PENDING_SALES_KEY = 'crystalpos_pending_sales';
 const DEVICE_ID_KEY = 'crystalpos_device_id';
 
 type PaymentMethod = 'cash' | 'sinpe' | 'card' | '';
-type POSView = 'sales' | 'inventory' | 'add' | 'dashboard';
+type POSView = 'sales' | 'inventory' | 'add' | 'dashboard' | 'gallery';
 
 export default function POSPage() {
   const [currentView, setCurrentView] = useState<POSView>('sales');
@@ -220,6 +222,17 @@ export default function POSPage() {
   const [savingCategory, setSavingCategory] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const slideIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [isIdle, setIsIdle] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailItem, setDetailItem] = useState<Item | null>(null);
+  const [detailWeight, setDetailWeight] = useState(100);
+  const [detailFinalPrice, setDetailFinalPrice] = useState<number | null>(null);
+  const [showHelpTooltips, setShowHelpTooltips] = useState(true);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -327,6 +340,70 @@ export default function POSPage() {
     };
     init();
   }, [isOnline, loadOfflineData]);
+
+  // Idle detection - reset timer on any interaction
+  const resetIdleTimer = useCallback(() => {
+    setIsIdle(false);
+    if (slideIntervalRef.current) {
+      clearInterval(slideIntervalRef.current);
+      slideIntervalRef.current = null;
+    }
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      setIsIdle(true);
+      // Start slideshow
+      slideIntervalRef.current = setInterval(() => {
+        setGalleryIndex(prev => (prev + 1) % sortedItems.length);
+      }, 4000);
+    }, 60000); // 60 seconds
+  }, []);
+
+  // Attach global idle detection
+  useEffect(() => {
+    const events = ['touchstart', 'touchmove', 'touchend', 'click', 'scroll', 'keydown'];
+    events.forEach(event => {
+      document.addEventListener(event, resetIdleTimer);
+    });
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, resetIdleTimer);
+      });
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      if (slideIntervalRef.current) clearInterval(slideIntervalRef.current);
+    };
+  }, [resetIdleTimer]);
+
+  // Sort items: most expensive first for gallery
+  const sortedItems = [...items].sort((a, b) => Number(b.price_crc) - Number(a.price_crc));
+
+  const handleGallerySwipe = (direction: 'prev' | 'next') => {
+    resetIdleTimer();
+    if (direction === 'next') {
+      setGalleryIndex((galleryIndex + 1) % sortedItems.length);
+    } else {
+      setGalleryIndex((galleryIndex - 1 + sortedItems.length) % sortedItems.length);
+    }
+  };
+
+  const handleGalleryTap = (item: Item) => {
+    resetIdleTimer();
+    setDetailItem(item);
+    setDetailWeight(100);
+    setDetailFinalPrice(null);
+    setShowDetailModal(true);
+  };
+
+  const addFromDetail = () => {
+    if (!detailItem) return;
+    const finalPrice = detailFinalPrice !== null ? detailFinalPrice : Number(detailItem.price_crc) * detailWeight;
+    const existing = cart.find(c => c.item.id === detailItem.id);
+    if (existing) {
+      setCart(cart.map(c => c.item.id === detailItem.id ? { ...c, quantity: c.quantity + detailWeight, subtotal: c.subtotal + finalPrice } : c));
+    } else {
+      setCart([...cart, { item: detailItem, quantity: detailWeight, subtotal: finalPrice }]);
+    }
+    setShowDetailModal(false);
+  };
 
   const handleNameSubmit = async () => {
     if (deviceName.trim()) {
@@ -526,6 +603,140 @@ export default function POSPage() {
       </AppBar>
 
       <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+        {/* GALLERY VIEW - Full screen carousel */}
+        {currentView === 'gallery' && sortedItems.length > 0 && (
+          <Box 
+            ref={carouselRef}
+            onTouchStart={() => resetIdleTimer()}
+            onTouchEnd={() => resetIdleTimer()}
+            sx={{ 
+              position: 'relative', 
+              height: '100%', 
+              display: 'flex', 
+              flexDirection: 'column',
+              touchAction: 'pan-y'
+            }}
+          >
+            <Tooltip title={showHelpTooltips ? "Desliza ← → para ver más piedras. Toca 2 veces para ver detalles." : ""} arrow placement="top">
+              <Box sx={{ textAlign: 'center', mb: 1 }}>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
+                  {isIdle ? '🎬 Modo presentación' : '👆 Desliza o toca para navegar'}
+                </Typography>
+              </Box>
+            </Tooltip>
+            
+            {/* Main Image Carousel */}
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              {/* Left Arrow */}
+              <IconButton 
+                onClick={() => handleGallerySwipe('prev')}
+                sx={{ 
+                  position: 'absolute', 
+                  left: 10, 
+                  zIndex: 10, 
+                  bgcolor: 'rgba(255,255,255,0.3)',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.5)' }
+                }}
+              >
+                <ChevronLeft sx={{ fontSize: 40, color: 'white' }} />
+              </IconButton>
+
+              {/* Item Card */}
+              <Box 
+                onClick={() => handleGalleryTap(sortedItems[galleryIndex])}
+                onDoubleClick={() => handleGalleryTap(sortedItems[galleryIndex])}
+                sx={{ 
+                  width: '85%', 
+                  maxWidth: 500,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  animation: isIdle ? 'pulse 2s infinite' : 'none',
+                  '@keyframes pulse': {
+                    '0%, 100%': { transform: 'scale(1)' },
+                    '50%': { transform: 'scale(1.02)' }
+                  }
+                }}
+              >
+                <Box sx={{ 
+                  width: '100%', 
+                  height: 300, 
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  border: '3px solid rgba(212, 175, 55, 0.5)',
+                  mb: 2
+                }}>
+                  {sortedItems[galleryIndex].image_url ? (
+                    <img 
+                      src={sortedItems[galleryIndex].image_url} 
+                      alt={sortedItems[galleryIndex].name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '4rem' }}>💎</Typography>
+                    </Box>
+                  )}
+                </Box>
+                
+                <Typography variant="h5" sx={{ color: '#D4AF37', fontWeight: 'bold', mb: 0.5, textShadow: '0 0 10px rgba(0,0,0,0.5)' }}>
+                  {sortedItems[galleryIndex].name}
+                </Typography>
+                {(sortedItems[galleryIndex] as any).name_es && (
+                  <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.8)', mb: 1 }}>
+                    {(sortedItems[galleryIndex] as any).name_es}
+                  </Typography>
+                )}
+                <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold', mb: 0.5 }}>
+                  {formatCurrency(Number(sortedItems[galleryIndex].price_crc))}/g
+                </Typography>
+                <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                  📦 {sortedItems[galleryIndex].current_weight_grams}g disponibles
+                </Typography>
+                
+                {/* Help text */}
+                <Box sx={{ mt: 2, p: 1, bgcolor: 'rgba(212, 175, 55, 0.2)', borderRadius: 2 }}>
+                  <Typography variant="caption" sx={{ color: '#D4AF37' }}>
+                    👆 Toca dos veces para añadir al carrito
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Right Arrow */}
+              <IconButton 
+                onClick={() => handleGallerySwipe('next')}
+                sx={{ 
+                  position: 'absolute', 
+                  right: 10, 
+                  zIndex: 10, 
+                  bgcolor: 'rgba(255,255,255,0.3)',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.5)' }
+                }}
+              >
+                <ChevronRight sx={{ fontSize: 40, color: 'white' }} />
+              </IconButton>
+            </Box>
+
+            {/* Dot Indicators */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2, flexWrap: 'wrap', maxWidth: 400, mx: 'auto' }}>
+              {sortedItems.slice(0, 10).map((_, idx) => (
+                <Box 
+                  key={idx}
+                  onClick={() => { resetIdleTimer(); setGalleryIndex(idx); }}
+                  sx={{ 
+                    width: idx === galleryIndex ? 24 : 8, 
+                    height: 8, 
+                    borderRadius: 4, 
+                    bgcolor: idx === galleryIndex ? '#D4AF37' : 'rgba(255,255,255,0.3)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s'
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
+
         {currentView === 'sales' && (
           <>
             <TextField fullWidth size="small" placeholder="Buscar items / Search items..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} sx={{ mb: 1, bgcolor: 'white' }} />
@@ -631,6 +842,60 @@ export default function POSPage() {
           </Box>
         </Paper>
       )}
+
+      {/* DETAIL MODAL - Add item with custom weight */}
+      <Dialog open={showDetailModal} onClose={() => setShowDetailModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ color: COLORS.darkText, textAlign: 'center' }}>
+          {detailItem?.name}
+        </DialogTitle>
+        <DialogContent>
+          {/* Large Image */}
+          <Box sx={{ width: '100%', height: 200, bgcolor: 'grey.200', borderRadius: 2, mb: 2, overflow: 'hidden' }}>
+            {detailItem?.image_url ? (
+              <img src={detailItem.image_url} alt={detailItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem' }}>💎</Box>
+            )}
+          </Box>
+
+          <Typography variant="body2" sx={{ color: COLORS.lightText, mb: 2, textAlign: 'center' }}>
+            {detailItem?.description}
+          </Typography>
+
+          <Tooltip title="Ingresa el peso en gramos">
+            <TextField
+              fullWidth
+              label="Peso (gramos)"
+              type="number"
+              value={detailWeight}
+              onChange={(e) => setDetailWeight(Number(e.target.value))}
+              sx={{ mb: 2, bgcolor: 'white' }}
+            />
+          </Tooltip>
+
+          <Typography variant="h6" sx={{ color: COLORS.darkText, mb: 1, textAlign: 'center' }}>
+            Precio automático: {formatCurrency(Number(detailItem?.price_crc || 0) * detailWeight)}
+          </Typography>
+
+          <Tooltip title="Deja vacío para precio automático, o ingresa precio final">
+            <TextField
+              fullWidth
+              label="O precio final (override)"
+              type="number"
+              value={detailFinalPrice !== null ? detailFinalPrice : ''}
+              placeholder="Precio manual"
+              onChange={(e) => setDetailFinalPrice(e.target.value ? Number(e.target.value) : null)}
+              sx={{ mb: 2, bgcolor: 'white' }}
+            />
+          </Tooltip>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+          <Button onClick={() => setShowDetailModal(false)} variant="outlined">Cancelar</Button>
+          <Button onClick={addFromDetail} variant="contained" color="success" sx={{ bgcolor: COLORS.success }}>
+            Añadir al Carrito
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {showCheckout && (
         <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
@@ -750,11 +1015,12 @@ export default function POSPage() {
         </DialogActions>
       </Dialog>
 
-      <BottomNavigation value={currentView} onChange={(_, v) => setCurrentView(v)} sx={{ bgcolor: 'white' }}>
-        <BottomNavigationAction value="sales" label="Ventas / Sales" icon={<ShoppingCart />} />
-        <BottomNavigationAction value="inventory" label="Inventario / Inventory" icon={<InventoryIcon />} />
-        <BottomNavigationAction value="add" label="Agregar / Add" icon={<Add />} />
-        <BottomNavigationAction value="dashboard" label="Ajustes / Settings" icon={<DashboardIcon />} />
+      <BottomNavigation value={currentView} onChange={(_, v) => { setCurrentView(v); resetIdleTimer(); }} sx={{ bgcolor: 'white' }}>
+        <BottomNavigationAction value="gallery" label="Galería" icon={<CollectionsBookmark />} />
+        <BottomNavigationAction value="sales" label="Ventas" icon={<ShoppingCart />} />
+        <BottomNavigationAction value="inventory" label="Inventario" icon={<InventoryIcon />} />
+        <BottomNavigationAction value="add" label="Agregar" icon={<Add />} />
+        <BottomNavigationAction value="dashboard" label="Ajustes" icon={<DashboardIcon />} />
       </BottomNavigation>
     </Box>
     </>
