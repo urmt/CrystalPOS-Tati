@@ -19,7 +19,7 @@ import Grid from '@mui/material/Grid2';
 import { 
   ShoppingCart, Inventory as InventoryIcon, Dashboard as DashboardIcon,
   Settings, Delete, Payment, WifiOff, Sync, Add, CameraAlt, Close,
-  ChevronLeft, ChevronRight, CollectionsBookmark, PlayArrow, Pause, Remove
+  ChevronLeft, ChevronRight, Home, PlayArrow, Pause, Remove
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { logErrorAndAlert } from '@/lib/telegram';
@@ -1395,7 +1395,7 @@ const isFixedPrice = (item: Item) => {
             resetIdleTimer();
           }
         }} sx={{ bgcolor: 'white' }}>
-        <BottomNavigationAction value="gallery" label="Galería" icon={<CollectionsBookmark />} />
+        <BottomNavigationAction value="gallery" label="Galería" icon={<Home />} />
         <BottomNavigationAction value="sales" label="Ventas" icon={<ShoppingCart />} />
         <BottomNavigationAction value="cart" label="Carrito" icon={<Badge badgeContent={cart.length} color="secondary"><ShoppingCart /></Badge>} />
         <BottomNavigationAction value="inventory" label="Inventario" icon={<InventoryIcon />} />
