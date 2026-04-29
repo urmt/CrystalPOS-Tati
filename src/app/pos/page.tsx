@@ -13,7 +13,7 @@ import {
   Paper, CircularProgress, BottomNavigation,
   BottomNavigationAction, AppBar, Toolbar, Radio, RadioGroup,
   FormControlLabel, FormControl, Dialog, DialogTitle, 
-  DialogContent, DialogActions, Select, MenuItem, InputLabel, Chip, Tooltip
+  DialogContent, DialogActions, Select, MenuItem, InputLabel, Chip, Tooltip, Checkbox
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import { 
@@ -249,6 +249,12 @@ export default function POSPage() {
   const [showNumberPad, setShowNumberPad] = useState(false);
   const [numberPadItemIdx, setNumberPadItemIdx] = useState<number | null>(null);
   const [numberPadValue, setNumberPadValue] = useState('');
+  
+  // Customer info for WhatsApp receipt
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [countryCode, setCountryCode] = useState('+506');
+  const [wantReceipt, setWantReceipt] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1308,7 +1314,59 @@ const isFixedPrice = (item: Item) => {
                 <FormControlLabel value="card" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>Tarjeta / Card</Typography>} />
               </RadioGroup>
             </FormControl>
-            <Button variant="contained" color="success" fullWidth size="large" disabled={!paymentMethod || processing} onClick={handleCheckout} sx={{ bgcolor: COLORS.success }}>
+            
+            {/* Customer Receipt Section */}
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography sx={{ mb: 1, fontWeight: 'bold', color: COLORS.darkText }}>
+                ¿Recibo por WhatsApp? (opcional)
+              </Typography>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Checkbox checked={wantReceipt} onChange={(e) => setWantReceipt(e.target.checked)} />
+                <Typography variant="caption" sx={{ color: COLORS.lightText }}>
+                  Si el cliente quiere recibo por WhatsApp
+                </Typography>
+              </Box>
+              
+              {wantReceipt && (
+                <>
+                  {/* Country code selector */}
+                  <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                    <FormControl size="small" sx={{ minWidth: 90 }}>
+                      <Select value={countryCode} onChange={(e) => setCountryCode(e.target.value)} sx={{ bgcolor: 'white' }}>
+                        <MenuItem value="+1">+1 US/CA</MenuItem>
+                        <MenuItem value="+506">+506 CR</MenuItem>
+                        <MenuItem value="+44">+44 UK</MenuItem>
+                        <MenuItem value="+54">+54 AR</MenuItem>
+                        <MenuItem value="+55">+55 BR</MenuItem>
+                        <MenuItem value="+57">+57 CO</MenuItem>
+                        <MenuItem value="+58">+58 VE</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField 
+                      fullWidth
+                      size="small"
+                      label="Número / Phone"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, ''))}
+                      placeholder="8888 8888"
+                      sx={{ bgcolor: 'white' }}
+                    />
+                  </Box>
+                  
+                  <TextField 
+                    fullWidth
+                    size="small"
+                    label="Nombre del cliente / Customer name (opcional)"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    sx={{ bgcolor: 'white' }}
+                  />
+                </>
+              )}
+            </Box>
+            
+            <Button variant="contained" color="success" fullWidth size="large" disabled={!paymentMethod || processing} onClick={handleCheckout} sx={{ bgcolor: COLORS.success, mt: 2 }}>
               {processing ? 'Procesando / Processing...' : 'Completar Venta / Complete Sale'}
             </Button>
             {!isOnline && <Typography variant="caption" sx={{ color: COLORS.lightText, display: 'block', mt: 1 }}>Sin Conexión - Se sincronizará cuando esté en línea / Offline - Will sync when online</Typography>}

@@ -79,6 +79,8 @@ export interface Sale {
   notes: string | null;
   receipt_sent: boolean;
   receipt_email: string | null;
+  customer_phone: string | null;
+  customer_name: string | null;
   created_by_user_id: string | null;
   created_at: string;
   synced_at: string | null;
@@ -98,4 +100,18 @@ export interface AuditLog {
   ip_address: string | null;
   user_agent: string | null;
   created_at: string;
+}
+
+export interface Customer {
+  id: string;
+  phone: string;
+  country_code: string;
+  name: string | null;
+  total_purchases: number;
+  purchase_count: number;
+  last_purchase: string | null;
+  special_requests: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
