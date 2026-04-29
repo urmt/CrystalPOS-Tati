@@ -244,6 +244,11 @@ export default function POSPage() {
   const [showGramModal, setShowGramModal] = useState(false);
   const [gramItem, setGramItem] = useState<Item | null>(null);
   const [gramQty, setGramQty] = useState(0);
+  
+  // Number pad modal for price entry
+  const [showNumberPad, setShowNumberPad] = useState(false);
+  const [numberPadItemIdx, setNumberPadItemIdx] = useState<number | null>(null);
+  const [numberPadValue, setNumberPadValue] = useState('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1000,29 +1005,23 @@ const isFixedPrice = (item: Item) => {
                           ))}
                         </Box>
                         
-                        {/* Manual price override - TOTAL price */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, justifyContent: 'center' }}>
+                        {/* Manual price - tap to open number pad */}
+                        <Box 
+                          onClick={() => {
+                            setNumberPadItemIdx(idx);
+                            setNumberPadValue((cartItem as any).manualPrice ? String((cartItem as any).manualPrice) : '');
+                            setShowNumberPad(true);
+                          }}
+                          sx={{ 
+                            display: 'flex', alignItems: 'center', gap: 1, mb: 1, justifyContent: 'center',
+                            cursor: 'pointer', p: 0.5, px: 2, borderRadius: 1, border: '1px dashed grey',
+                            '&:hover': { bgcolor: 'grey.100' }
+                          }}
+                        >
                           <Typography variant="caption" sx={{ color: COLORS.darkText }}>Precio:</Typography>
-                          <TextField
-                            size="small"
-                            type="number"
-                            placeholder={String(Math.round(cartItem.subtotal))}
-                            value={(cartItem as any).manualPrice || ''}
-                            onChange={(e) => {
-                              const manualTotal = Number(e.target.value) || null;
-                              const newCart = [...cart];
-                              const pct = (cartItem as any).itemDiscount || 0;
-                              // Manual price = TOTAL line price (apply discount % on top)
-                              const finalTotal = manualTotal ? manualTotal * (1 - pct / 100) : cartItem.subtotal;
-                              newCart[idx] = { 
-                                ...newCart[idx], 
-                                manualPrice: manualTotal,
-                                subtotal: finalTotal
-                              };
-                              setCart(newCart);
-                            }}
-                            sx={{ width: 90, '& input': { fontSize: '0.9rem', py: 0.5 } }}
-                          />
+                          <Typography sx={{ fontWeight: 'bold', color: COLORS.primary, fontSize: '0.9rem' }}>
+                            {(cartItem as any).manualPrice ? formatCurrency((cartItem as any).manualPrice) : 'TAP'}
+                          </Typography>
                         </Box>
                         
                         {/* Quantity controls */}
@@ -1418,6 +1417,68 @@ const isFixedPrice = (item: Item) => {
             sx={{ bgcolor: COLORS.primary, '&:hover': { bgcolor: COLORS.primaryDark } }}
           >
             Agregar al Carrito
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Number Pad for manual price entry */}
+      <Dialog open={showNumberPad} onClose={() => setShowNumberPad(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ textAlign: 'center', bgcolor: COLORS.primary, color: 'white' }}>
+          Ingresar Precio / Enter Price
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {/* Display */}
+          <Typography variant="h4" sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2, color: COLORS.primary }}>
+            {numberPadValue ? formatCurrency(Number(numberPadValue)) : '₡0'}
+          </Typography>
+          
+          {/* Number pad */}
+          <Grid container spacing={1} sx={{ mb: 2 }}>
+            {['1','2','3','4','5','6','7','8','9','C','0','⌫'].map(key => (
+              <Grid size={4} key={key}>
+                <Button 
+                  fullWidth 
+                  variant="contained" 
+                  onClick={() => {
+                    if (key === 'C') {
+                      setNumberPadValue('');
+                    } else if (key === '⌫') {
+                      setNumberPadValue(prev => prev.slice(0, -1));
+                    } else {
+                      setNumberPadValue(prev => prev + key);
+                    }
+                  }}
+                  sx={{ py: 2, fontSize: '1.5rem', bgcolor: key === 'C' ? COLORS.error : key === '⌫' ? COLORS.warning : 'grey.300', color: 'black' }}
+                >
+                  {key}
+                </Button>
+              </Grid>
+            ))}
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+          <Button onClick={() => setShowNumberPad(false)} sx={{ mr: 1 }}>Cancelar</Button>
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              if (numberPadItemIdx !== null && numberPadValue) {
+                const newCart = [...cart];
+                const cartItem = newCart[numberPadItemIdx];
+                const manualTotal = Number(numberPadValue);
+                const pct = (cartItem as any).itemDiscount || 0;
+                // Manual price = TOTAL line price (apply discount % on top)
+                newCart[numberPadItemIdx] = { 
+                  ...cartItem, 
+                  manualPrice: manualTotal,
+                  subtotal: manualTotal * (1 - pct / 100)
+                };
+                setCart(newCart);
+              }
+              setShowNumberPad(false);
+            }}
+            sx={{ bgcolor: COLORS.primary }}
+          >
+            Aceptar / OK
           </Button>
         </DialogActions>
       </Dialog>
