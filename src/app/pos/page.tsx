@@ -340,9 +340,17 @@ export default function POSPage() {
         await registerDevice(id);
         await fetchData();
       } else { loadOfflineData(); }
+      
+      // Start idle timer after data loads (for auto-slideshow after 60s)
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => {
+        setCurrentView('gallery');
+        setIsIdle(true);
+        startSlideshow();
+      }, 60000);
     };
     init();
-  }, [isOnline, loadOfflineData]);
+  }, [isOnline, loadOfflineData, startSlideshow]);
 
   // =============================================================================
   // Helper: Start slideshow (called by idle timer OR manual PLAY button)
@@ -393,7 +401,7 @@ export default function POSPage() {
     }
   }, [manualSlideshow, startSlideshow, stopSlideshow]);
 
-  // Attach global idle detection (separate from slideshow management)
+  // Attach global event listeners for idle detection
   useEffect(() => {
     const handleInteraction = () => {
       // Only reset idle timer, don't touch slideshow
@@ -403,24 +411,30 @@ export default function POSPage() {
       idleTimerRef.current = setTimeout(() => {
         setCurrentView('gallery');
         setIsIdle(true);
-        const maxItems = Math.min(items.length, 10);
-        if (maxItems > 0) {
-          if (slideIntervalRef.current) clearInterval(slideIntervalRef.current);
-          slideIntervalRef.current = setInterval(() => {
-            setGalleryIndex(prev => (prev + 1) % maxItems);
-          }, 6000);
-        }
+        startSlideshow();
       }, 60000);
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Page hidden - clear any existing timer
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      } else {
+        // Page visible - start idle timer
+        handleInteraction();
+      }
     };
     
     const events = ['touchstart', 'touchmove', 'touchend', 'click', 'scroll', 'keydown'];
     events.forEach(event => document.addEventListener(event, handleInteraction));
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
       events.forEach(event => document.removeEventListener(event, handleInteraction));
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
-  }, [manualSlideshow, items.length]);
+  }, [manualSlideshow, startSlideshow]);
 
   // Helper to get display price for an item
 const getDisplayPrice = (item: Item) => {
