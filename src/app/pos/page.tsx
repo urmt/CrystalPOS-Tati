@@ -255,6 +255,11 @@ export default function POSPage() {
   const [customerName, setCustomerName] = useState('');
   const [countryCode, setCountryCode] = useState('+506');
   const [wantReceipt, setWantReceipt] = useState(false);
+  
+  // Today's sales stats
+  const [todaySalesCount, setTodaySalesCount] = useState(0);
+  const [todayRevenue, setTodayRevenue] = useState(0);
+  const [todayItemsSold, setTodayItemsSold] = useState(0);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -358,10 +363,36 @@ export default function POSPage() {
       if (isOnline) {
         await registerDevice(id);
         await fetchData();
+        await fetchTodaySales();
       } else { loadOfflineData(); }
     };
     init();
   }, [isOnline, loadOfflineData]);
+
+  // Fetch today's sales stats
+  const fetchTodaySales = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data } = await supabase
+        .from('sales')
+        .select('total_crc, items_sold')
+        .gte('created_at', today);
+      
+      if (data) {
+        const count = data.length;
+        const revenue = data.reduce((sum, s) => sum + (s.total_crc || 0), 0);
+        const items = data.reduce((sum, s) => {
+          if (s.items_sold) {
+            return sum + s.items_sold.reduce((is: number, item: any) => is + (item.qty_grams || 0), 0);
+          }
+          return sum;
+        }, 0);
+        setTodaySalesCount(count);
+        setTodayRevenue(revenue);
+        setTodayItemsSold(items);
+      }
+    } catch (err) { console.error('Error fetching today sales:', err); }
+  };
 
   // Start idle timer after initial render (runs once)
   useEffect(() => {
@@ -1171,14 +1202,53 @@ const isFixedPrice = (item: Item) => {
         )}
 
         {currentView === 'dashboard' && (
-          <Box sx={{ textAlign: 'center', py: 4, color: COLORS.darkText }}>
-            <Typography variant="h5" sx={{ mb: 1, color: COLORS.darkText }}>Crystales Tati</Typography>
-            <Typography sx={{ color: COLORS.lightText, mb: 2 }}>POS Manager de Ventas / Vendor Manager POS</Typography>
+          <Box sx={{ textAlign: 'center', py: 2, color: '#1a1a1a' }}>
+            <Typography variant="h5" sx={{ mb: 1, fontWeight: 'bold', color: '#1a1a1a' }}>💎 Crystales Tati</Typography>
             <Divider sx={{ my: 2 }} />
-            <Typography sx={{ color: COLORS.darkText }}>Dispositivo / Device: {localStorage.getItem('crystalpos_device_name') || 'Sin Nombre / Unnamed'}</Typography>
-            <Typography sx={{ color: COLORS.darkText }}>Estado / Status: {isOnline ? 'En Línea / Online' : 'Sin Conexión / Offline'}</Typography>
-            <Typography sx={{ color: COLORS.darkText }}>Última Sincronización / Last Sync: {lastSync ? new Date(lastSync).toLocaleString() : 'Nunca / Never'}</Typography>
-            <Typography sx={{ color: COLORS.darkText }}>Items: {items.length}</Typography>
+            
+            {/* Today's Sales Report */}
+            <Paper sx={{ p: 2, mb: 2, bgcolor: '#f8f8f8', textAlign: 'left' }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#6B4C9A', mb: 1 }}>
+                📊 Reporte de Hoy / Today's Report
+              </Typography>
+              <Divider sx={{ mb: 1 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography sx={{ color: '#333' }}>Ventas / Sales:</Typography>
+                <Typography sx={{ fontWeight: 'bold', color: '#333' }}>{todaySalesCount}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography sx={{ color: '#333' }}>Ingresos / Revenue:</Typography>
+                <Typography sx={{ fontWeight: 'bold', color: '#228B22' }}>{formatCurrency(todayRevenue)}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography sx={{ color: '#333' }}>Artículos / Items:</Typography>
+                <Typography sx={{ fontWeight: 'bold', color: '#333' }}>{todayItemsSold}</Typography>
+              </Box>
+            </Paper>
+            
+            {/* Device Info */}
+            <Paper sx={{ p: 2, mb: 2, bgcolor: '#f8f8f8', textAlign: 'left' }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#6B4C9A', mb: 1 }}>
+                ⚙️ Info del Dispositivo / Device
+              </Typography>
+              <Divider sx={{ mb: 1 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography sx={{ color: '#333' }}>Nombre:</Typography>
+                <Typography sx={{ fontWeight: 'bold', color: '#333' }}>{localStorage.getItem('crystalpos_device_name') || 'Sin Nombre'}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography sx={{ color: '#333' }}>Estado:</Typography>
+                <Chip label={isOnline ? '🟢 En Línea' : '🔴 Offline'} size="small" />
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography sx={{ color: '#333' }}>Última Sync:</Typography>
+                <Typography sx={{ fontSize: '0.8rem', color: '#333' }}>{lastSync ? new Date(lastSync).toLocaleString() : 'Nunca'}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography sx={{ color: '#333' }}>Items:</Typography>
+                <Typography sx={{ fontWeight: 'bold' }}>{items.length}</Typography>
+              </Box>
+            </Paper>
           </Box>
         )}
       </Box>
