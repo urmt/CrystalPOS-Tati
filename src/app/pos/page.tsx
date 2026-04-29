@@ -346,18 +346,28 @@ export default function POSPage() {
 
   // Idle detection - reset timer on any interaction
   const resetIdleTimer = useCallback(() => {
+    // Stop any running slideshow
+    if (slideIntervalRef.current) {
+      clearInterval(slideIntervalRef.current);
+      slideIntervalRef.current = null;
+    }
     // Don't reset if manual slideshow is active
     if (manualSlideshow) return;
     
     setIsIdle(false);
-    stopSlideshowRef.current();
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       setCurrentView('gallery');
       setIsIdle(true);
-      startSlideshowRef.current();
+      const maxItems = Math.min(items.length, 10);
+      if (maxItems > 0) {
+        if (slideIntervalRef.current) clearInterval(slideIntervalRef.current);
+        slideIntervalRef.current = setInterval(() => {
+          setGalleryIndex(prev => (prev + 1) % maxItems);
+        }, 6000);
+      }
     }, 60000); // 60 seconds
-  }, [manualSlideshow]);
+  }, [manualSlideshow, items.length]);
 
   // Toggle slideshow manually
   const toggleSlideshow = useCallback(() => {
@@ -365,15 +375,24 @@ export default function POSPage() {
       // Stop manual slideshow
       setManualSlideshow(false);
       setIsIdle(false);
-      stopSlideshowRef.current();
+      if (slideIntervalRef.current) {
+        clearInterval(slideIntervalRef.current);
+        slideIntervalRef.current = null;
+      }
     } else {
       // Start manual slideshow
       setCurrentView('gallery');
       setManualSlideshow(true);
       setIsIdle(true);
-      startSlideshowRef.current();
+      const maxItems = Math.min(items.length, 10);
+      if (maxItems > 0) {
+        if (slideIntervalRef.current) clearInterval(slideIntervalRef.current);
+        slideIntervalRef.current = setInterval(() => {
+          setGalleryIndex(prev => (prev + 1) % maxItems);
+        }, 6000);
+      }
     }
-  }, [manualSlideshow]);
+  }, [manualSlideshow, items.length]);
 
   // Attach global idle detection
   useEffect(() => {
