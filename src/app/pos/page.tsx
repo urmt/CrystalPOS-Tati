@@ -141,6 +141,7 @@ interface CartItem {
   item: Item;
   quantity: number;
   subtotal: number;
+  itemDiscount?: number;
 }
 
 // =============================================================================
@@ -670,8 +671,17 @@ const isFixedPrice = (item: Item) => {
 
   const getSubcategoriesForCategory = (catId: string) => subcategories.filter(s => s.category_id === catId);
 
-  const rawTotal = cart.reduce((sum, c) => sum + c.subtotal, 0);
-  const discountAmount = discountPercent > 0 ? (rawTotal * discountPercent / 100) : 0;
+  const rawTotal = cart.reduce((sum, c) => {
+    const unitPrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
+    const itemDiscount = (c as any).itemDiscount || 0;
+    return sum + (unitPrice * c.quantity * (1 - itemDiscount / 100));
+  }, 0);
+  const cartItemDiscounts = cart.reduce((sum, c) => {
+    const unitPrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
+    const itemDiscount = (c as any).itemDiscount || 0;
+    return sum + (unitPrice * c.quantity * (itemDiscount / 100));
+  }, 0);
+  const discountAmount = (discountPercent > 0 ? (cart.reduce((sum, c) => sum + c.subtotal, 0) * discountPercent / 100) : 0);
   const finalTotal = discountOverride !== null ? discountOverride : rawTotal - discountAmount;
   const cartTotal = finalTotal;
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
@@ -944,16 +954,38 @@ const isFixedPrice = (item: Item) => {
                       <ListItem key={idx} sx={{ bgcolor: 'white', borderRadius: 1, mb: 1, flexDirection: 'column', alignItems: 'stretch' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
                           <Box sx={{ flex: 1 }}>
-                            <Typography sx={{ fontWeight: 'bold' }}>{cartItem.item.name}</Typography>
+                            <Typography sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: COLORS.darkText }}>{cartItem.item.name}</Typography>
                             <Typography variant="caption" sx={{ color: COLORS.lightText }}>
                               {isPerGram ? `${formatCurrency(unitPrice)}/g` : formatCurrency(unitPrice)} {isPerGram ? `× ${cartItem.quantity}g` : `× ${cartItem.quantity} unidades`}
                             </Typography>
                           </Box>
                           <Box sx={{ textAlign: 'right' }}>
-                            <Typography sx={{ fontWeight: 'bold', color: COLORS.primary }}>
+                            <Typography sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: COLORS.primary }}>
                               {formatCurrency(cartItem.subtotal)}
                             </Typography>
                           </Box>
+                        </Box>
+                        
+                        {/* Per-item discount controls */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+                          <Typography variant="caption" sx={{ color: COLORS.darkText }}>Descuento:</Typography>
+                          {[(cartItem as any).itemDiscount || 0, 5, 10, 15, 20, 25, 50].map(pct => (
+                            <Button 
+                              key={pct}
+                              size="small"
+                              variant={(cartItem as any).itemDiscount === pct ? 'contained' : 'outlined'}
+                              onClick={() => {
+                                const newCart = [...cart];
+                                newCart[idx] = { ...newCart[idx], itemDiscount: pct };
+                                const itemTotal = unitPrice * cartItem.quantity * (1 - pct / 100);
+                                newCart[idx] = { ...newCart[idx], subtotal: itemTotal };
+                                setCart(newCart);
+                              }}
+                              sx={{ minWidth: 40, py: 0.25, px: 0.5, fontSize: '0.7rem' }}
+                            >
+                              {pct}%
+                            </Button>
+                          ))}
                         </Box>
                         
                         {/* Quantity controls */}
@@ -961,7 +993,7 @@ const isFixedPrice = (item: Item) => {
                           <IconButton size="small" onClick={() => updateQuantity(cartItem.item.id, -1)} sx={{ bgcolor: 'grey.200' }}>
                             <Remove />
                           </IconButton>
-                          <Typography sx={{ minWidth: 50, textAlign: 'center', fontWeight: 'bold' }}>
+                          <Typography sx={{ minWidth: 50, textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}>
                             {cartItem.quantity}{isPerGram ? 'g' : ''}
                           </Typography>
                           <IconButton size="small" onClick={() => updateQuantity(cartItem.item.id, 1)} sx={{ bgcolor: 'grey.200' }}>
