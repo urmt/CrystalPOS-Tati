@@ -340,17 +340,25 @@ export default function POSPage() {
         await registerDevice(id);
         await fetchData();
       } else { loadOfflineData(); }
-      
-      // Start idle timer after data loads (for auto-slideshow after 60s)
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(() => {
-        setCurrentView('gallery');
-        setIsIdle(true);
-        startSlideshow();
-      }, 60000);
     };
     init();
-  }, [isOnline, loadOfflineData, startSlideshow]);
+  }, [isOnline, loadOfflineData]);
+
+  // Start idle timer after initial render (runs once)
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      const maxItems = Math.min(items.length, 10);
+      if (maxItems > 0) {
+        setCurrentView('gallery');
+        setIsIdle(true);
+        if (slideIntervalRef.current) clearInterval(slideIntervalRef.current);
+        slideIntervalRef.current = setInterval(() => {
+          setGalleryIndex(prev => (prev + 1) % maxItems);
+        }, 6000);
+      }
+    }, 60000);
+    return () => clearTimeout(timerId);
+  }, [items.length]);
 
   // =============================================================================
   // Helper: Start slideshow (called by idle timer OR manual PLAY button)
