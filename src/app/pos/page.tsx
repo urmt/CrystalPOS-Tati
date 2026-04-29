@@ -610,27 +610,66 @@ const isFixedPrice = (item: Item) => {
   const createSale = async (): Promise<boolean> => {
     if (cart.length === 0 || !paymentMethod) return false;
     const itemsSold = cart.map(c => ({ item_id: c.item.id, sku: c.item.sku, name: c.item.name, qty_grams: c.quantity, price: c.subtotal }));
+    const fullPhone = countryCode.replace('__OTHER_', '') + customerPhone;
     const saleData = {
       sale_date: new Date().toISOString(), items_sold: itemsSold, subtotal_crc: rawTotal,
       discount_crc: rawTotal - finalTotal, tax_crc: 0, total_crc: finalTotal, payment_method: paymentMethod, payment_status: 'completed',
-      notes: null, receipt_sent: false, receipt_email: null, created_by_user_id: null,
+      notes: null, receipt_sent: false, receipt_email: null, 
+      customer_phone: wantReceipt ? fullPhone : null,
+      customer_name: wantReceipt ? customerName : null,
+      created_by_user_id: null,
       server_created_at: new Date().toISOString(), last_modified_at: new Date().toISOString()
     };
 
     if (isOnline) {
       try {
+        // Save/update customer if they want receipt
+        if (wantReceipt && fullPhone && customerPhone) {
+          // Check if customer exists
+          const { data: existing } = await supabase
+            .from('customers')
+            .select('id')
+            .eq('phone', customerPhone)
+            .eq('country_code', countryCode.replace('__OTHER_', ''))
+            .single();
+          
+          if (existing) {
+            // Update existing customer
+            await supabase.from('customers').update({
+              total_purchases: existing.total_purchases + finalTotal,
+              purchase_count: existing.purchase_count + 1,
+              last_purchase: new Date().toISOString().split('T')[0],
+              name: customerName || undefined
+            }).eq('id', existing.id);
+          } else {
+            // Insert new customer
+            await supabase.from('customers').insert({
+              phone: customerPhone,
+              country_code: countryCode.replace('__OTHER_', ''),
+              name: customerName || null,
+              total_purchases: finalTotal,
+              purchase_count: 1,
+              last_purchase: new Date().toISOString().split('T')[0]
+            });
+          }
+        }
+
         const { error } = await supabase.from('sales').insert(saleData);
         if (error) throw error;
+        
+        // Reset after successful sale
         setCart([]); setShowCheckout(false); setPaymentMethod(''); setDiscountPercent(0); setDiscountOverride(null);
+        setCustomerPhone(''); setCustomerName(''); setWantReceipt(false);
         await fetchData();
         return true;
       } catch (err) { console.error('Online sale failed:', err); }
     }
     try {
       const pending = JSON.parse(localStorage.getItem(PENDING_SALES_KEY) || '[]');
-      pending.push(saleData);
+      pending.push({...saleData, _customerWantReceipt: wantReceipt});
       localStorage.setItem(PENDING_SALES_KEY, JSON.stringify(pending));
       setCart([]); setShowCheckout(false); setPaymentMethod(''); setDiscountPercent(0); setDiscountOverride(null);
+      setCustomerPhone(''); setCustomerName(''); setWantReceipt(false);
       return true;
     } catch (err) { return false; }
   };
@@ -1442,14 +1481,24 @@ const isFixedPrice = (item: Item) => {
                     )}
                   </Box>
                   
-                  <TextField 
-                    fullWidth
-                    size="small"
-                    label="Nombre del cliente / Customer name (opcional)"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    sx={{ bgcolor: 'white' }}
-                  />
+                  {/* Customer Name - tap to open text keypad */}
+                  <Box 
+                    onClick={() => {
+                      setNumberPadItemIdx(-2); // -2 = name
+                      setNumberPadValue(customerName);
+                      setShowNumberPad(true);
+                    }}
+                    sx={{ 
+                      p: 1.5, borderRadius: 1, border: '1px solid #ccc', bgcolor: 'white',
+                      cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' }
+                    }}
+                  >
+                    {customerName ? (
+                      <Typography sx={{ color: '#333' }}>{customerName}</Typography>
+                    ) : (
+                      <Typography sx={{ color: '#999' }}>Nombre del cliente (tap para agregar)</Typography>
+                    )}
+                  </Box>
                 </>
               )}
             </Box>
@@ -1582,12 +1631,12 @@ const isFixedPrice = (item: Item) => {
       {/* Number Pad for manual price entry */}
       <Dialog open={showNumberPad} onClose={() => setShowNumberPad(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ textAlign: 'center', bgcolor: COLORS.primary, color: 'white' }}>
-          Ingresar Precio / Enter Price
+          {numberPadItemIdx === -2 ? 'Número de Teléfono' : numberPadItemIdx === -3 ? 'Nombre del Cliente' : 'Ingresar Precio'}
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           {/* Display */}
           <Typography variant="h4" sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2, color: COLORS.primary }}>
-            {numberPadValue ? formatCurrency(Number(numberPadValue)) : '₡0'}
+            {numberPadItemIdx === -2 || numberPadItemIdx === -3 ? numberPadValue : numberPadValue ? formatCurrency(Number(numberPadValue)) : '₡0'}
           </Typography>
           
           {/* Number pad */}
@@ -1619,10 +1668,15 @@ const isFixedPrice = (item: Item) => {
           <Button 
             variant="contained" 
             onClick={() => {
-              const newTotal = Number(numberPadValue);
               if (numberPadItemIdx === -1) {
                 // Cart-wide final total override
-                setDiscountOverride(newTotal);
+                setDiscountOverride(Number(numberPadValue));
+              } else if (numberPadItemIdx === -2) {
+                // Customer phone
+                setCustomerPhone(numberPadValue);
+              } else if (numberPadItemIdx === -3) {
+                // Customer name
+                setCustomerName(numberPadValue);
               } else if (numberPadItemIdx !== null && numberPadValue) {
                 // Individual item manual price
                 const newCart = [...cart];
@@ -1630,8 +1684,8 @@ const isFixedPrice = (item: Item) => {
                 const pct = (cartItem as any).itemDiscount || 0;
                 newCart[numberPadItemIdx] = { 
                   ...cartItem, 
-                  manualPrice: newTotal,
-                  subtotal: newTotal * (1 - pct / 100)
+                  manualPrice: Number(numberPadValue),
+                  subtotal: Number(numberPadValue) * (1 - pct / 100)
                 };
                 setCart(newCart);
               }
