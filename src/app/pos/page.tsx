@@ -225,6 +225,8 @@ export default function POSPage() {
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const slideIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const startSlideshowRef = useRef<() => void>(() => {});
+  const stopSlideshowRef = useRef<() => void>(() => {});
   
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [isIdle, setIsIdle] = useState(false);
@@ -348,19 +350,13 @@ export default function POSPage() {
     if (manualSlideshow) return;
     
     setIsIdle(false);
-    if (slideIntervalRef.current) {
-      clearInterval(slideIntervalRef.current);
-      slideIntervalRef.current = null;
-    }
+    stopSlideshowRef.current();
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       setIsIdle(true);
-      // Start slideshow - top 10 items, 6 seconds each
-      slideIntervalRef.current = setInterval(() => {
-        setGalleryIndex(prev => (prev + 1) % Math.min(sortedItems.length, 10));
-      }, 6000);
+      startSlideshowRef.current();
     }, 60000); // 60 seconds
-  }, [items.length, manualSlideshow]);
+  }, [manualSlideshow]);
 
   // Toggle slideshow manually
   const toggleSlideshow = useCallback(() => {
@@ -368,19 +364,14 @@ export default function POSPage() {
       // Stop manual slideshow
       setManualSlideshow(false);
       setIsIdle(false);
-      if (slideIntervalRef.current) {
-        clearInterval(slideIntervalRef.current);
-        slideIntervalRef.current = null;
-      }
+      stopSlideshowRef.current();
     } else {
-      // Start manual slideshow - top 10 items, 6 seconds each
+      // Start manual slideshow
       setManualSlideshow(true);
       setIsIdle(true);
-      slideIntervalRef.current = setInterval(() => {
-        setGalleryIndex(prev => (prev + 1) % Math.min(sortedItems.length, 10));
-      }, 6000);
+      startSlideshowRef.current();
     }
-  }, [manualSlideshow, items.length]);
+  }, [manualSlideshow]);
 
   // Attach global idle detection
   useEffect(() => {
@@ -411,6 +402,27 @@ const isFixedPrice = (item: Item) => {
   return (item as any).pricing_type === 'fixed';
 };
   const sortedItems = [...items].sort((a, b) => getDisplayPrice(b) - getDisplayPrice(a));
+  const maxGalleryItems = Math.min(sortedItems.length, 10);
+
+  // Slideshow functions - assign to refs for use in callbacks
+  const startSlideshow = useCallback(() => {
+    if (maxGalleryItems === 0) return;
+    if (slideIntervalRef.current) clearInterval(slideIntervalRef.current);
+    slideIntervalRef.current = setInterval(() => {
+      setGalleryIndex(prev => (prev + 1) % maxGalleryItems);
+    }, 6000);
+  }, [maxGalleryItems]);
+
+  const stopSlideshow = useCallback(() => {
+    if (slideIntervalRef.current) {
+      clearInterval(slideIntervalRef.current);
+      slideIntervalRef.current = null;
+    }
+  }, []);
+
+  // Update refs after functions are defined
+  startSlideshowRef.current = startSlideshow;
+  stopSlideshowRef.current = stopSlideshow;
 
   const handleGallerySwipe = (direction: 'prev' | 'next') => {
     resetIdleTimer();
