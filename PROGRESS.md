@@ -14,6 +14,39 @@
 
 ---
 
+## FIELD INPUT REQUIREMENTS (IMPORTANT)
+
+### All Input Fields Must Use Popup Keypads
+Due to iPad having no keyboard, ALL text/number input fields must use popup keypads:
+
+1. **Numbers (prices, weights, discount overrides)**: Use NUMBER PAD popup
+2. **Phone numbers**: Use NUMBER PAD popup  
+3. **Customer names**: Use TEXT INPUT popup/dialog
+4. **Any Text Input**: Must NOT use native keyboard - use dialogs/keypads
+
+### Implementation Pattern
+```jsx
+// WRONG - triggers native keyboard
+<TextField value={value} onChange={(e) => setValue(e.target.value)} />
+
+// CORRECT - uses popup keypad
+<Box onClick={() => openKeypad()} sx={{ p: 1, border: '1px solid #ccc' }}>
+  {value || 'Tap to enter...'}
+</Box>
+<Dialog open={keypadOpen} onClose={() => setKeypadOpen(false)}>
+  {/* Number pad buttons */}
+</Dialog>
+```
+
+### Fields That Need Popup Keypads
+- [x] Cart item prices (manual price override)
+- [x] Final total override
+- [x] Customer phone number
+- [ ] Customer name (in progress)
+- [x] Discount percentages (can use buttons)
+
+---
+
 ## Feature Checklist
 
 ### Core Features
@@ -25,17 +58,38 @@
 ### iPad POS Specific
 - [x] Gallery View - Full-screen carousel for visual advertising
 - [x] Manual Slideshow button (Play/Pause in header)
-- [x] Auto-slideshow - Starts after 60s idle
+- [x] Auto-slideshow - Starts after 60s idle, navigates to gallery
 - [x] Sales View - Grid of items with category filtering
+- [x] Cart View - Full cart management with discounts
 - [x] Inventory View - Stock warnings (red <30 days, orange <60 days, black = out)
 - [x] Add Item View - Add new items/categories/subcategories
-- [x] Settings/Dashboard View - Device info, sync status, last sync time
+- [x] Settings/Dashboard View - Device info, today's sales report, sync status
 - [x] Checkout flow with discount support
 - [x] Offline support with pending sales queue
+- [x] WhatsApp Receipt - Customer can enter phone/name, receipt sent
 
-### Inventory & Images
-- [x] 6 test items loaded with images
-- [x] Images display in slideshow, sales grid, and detail modal
+### Customer Features
+- [x] Customer phone input with country codes (+1, +52, +506, +57, +58, +54, +55, +39, +33, +34, +49, +31, +Other)
+- [x] Customer name input (optional)
+- [x] Customers saved to database automatically on sale
+- [x] Customer catalog in Admin (Customers page)
+
+### Cart Features
+- [x] Per-item discount buttons (0%, 5%, 10%, 15%, 20%, 25%, 50%)
+- [x] Per-item manual price override ( TOTAL price, not per-unit)
+- [x] Cart-wide discount percentage
+- [x] Final total manual override
+- [x] Quantity adjustment (+/-)
+
+### Admin Features
+- [x] Dashboard with sales summaries
+- [x] Sales history
+- [x] Inventory management
+- [x] Reports
+- [x] Customers catalog with search and CSV export
+- [x] Users management
+- [x] Devices management
+- [x] Settings
 
 ---
 
@@ -47,6 +101,7 @@
 - `subcategories` - Subcategories (with bilingual name_es field)
 - `items` - Products with pricing, weight, images
 - `sales` - Transaction records
+- `customers` - Customer catalog
 - `device_registrations` - iPad device tracking
 - `settings` - App settings
 
@@ -85,14 +140,22 @@
 ### ✅ Fixed: Image URLs
 - All 6 items now have valid Unsplash image URLs that work in slideshow
 
+### ✅ Fixed: Customer Database Not Saving
+- **Issue**: Customer phone/name not saving to database- **Fix**: Added customer lookup/insert logic in createSale function, saves to customers table
+
+### ✅ Fixed: Input Fields Need Popup Keypads
+- **Issue**: Native keyboard doesn't work on iPad- **Fix**: All number inputs now use popup number pad dialog- **Location**: Used for price, phone, final total inputs
+
 ---
 
 ## Pending / Future Features
 
 ### High Priority
-- [ ] Test slideshow auto-start after 60s idle
-- [ ] Verify slideshow manual button works
-- [ ] Test full checkout flow with actual sale
+- [x] Test slideshow auto-start after 60s idle
+- [x] Verify slideshow manual button works
+- [x] Test full checkout flow with actual sale
+- [x] WhatsApp receipt system (customer phone/name saving)
+- [x] Customer catalog in Admin
 
 ### Medium Priority
 - [ ] Add more items (20-30 crystal products)
@@ -102,7 +165,6 @@
 ### Low Priority
 - [ ] Multi-language toggle (EN/ES)
 - [ ] Analytics dashboard
-- [ ] Customer management
 
 ---
 
