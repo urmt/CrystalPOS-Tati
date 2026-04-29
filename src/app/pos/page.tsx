@@ -19,7 +19,7 @@ import Grid from '@mui/material/Grid2';
 import { 
   ShoppingCart, Inventory as InventoryIcon, Dashboard as DashboardIcon,
   Settings, Delete, Payment, WifiOff, Sync, Add, CameraAlt, Close,
-  ChevronLeft, ChevronRight, CollectionsBookmark, PlayArrow, Pause
+  ChevronLeft, ChevronRight, CollectionsBookmark, PlayArrow, Pause, Remove
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { logErrorAndAlert } from '@/lib/telegram';
@@ -28,6 +28,7 @@ import { formatCurrency } from '@/utils/format';
 
 const COLORS = {
   primary: '#6B4C9A',
+  primaryDark: '#4a3570',
   secondary: '#D4AF37',
   accent: '#20B2AA',
   success: '#228B22',
@@ -236,6 +237,11 @@ export default function POSPage() {
   const [detailFinalPrice, setDetailFinalPrice] = useState<number | null>(null);
   const [showHelpTooltips, setShowHelpTooltips] = useState(true);
   const [manualSlideshow, setManualSlideshow] = useState(false);
+  
+  // Gram input modal for per-gram items
+  const [showGramModal, setShowGramModal] = useState(false);
+  const [gramItem, setGramItem] = useState<Item | null>(null);
+  const [gramQty, setGramQty] = useState(0);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -509,16 +515,40 @@ const isFixedPrice = (item: Item) => {
   };
 
   const addToCart = (item: Item) => {
-    const existing = cart.find(c => c.item.id === item.id);
-    const price = isFixedPrice(item) ? getDisplayPrice(item) : Number(item.price_crc);
-    const qty = isFixedPrice(item) ? 1 : 1;
+    if (isFixedPrice(item)) {
+      // Fixed price - add directly
+      const existing = cart.find(c => c.item.id === item.id);
+      const price = getDisplayPrice(item);
+      if (existing) {
+        const newQty = existing.quantity + 1;
+        setCart(cart.map(c => c.item.id === item.id ? { ...c, quantity: newQty, subtotal: newQty * price } : c));
+      } else {
+        setCart([...cart, { item, quantity: 1, subtotal: price }]);
+      }
+    } else {
+      // Per-gram - open gram input modal
+      setGramItem(item);
+      setGramQty(0);
+      setShowGramModal(true);
+    }
+  };
+  
+  // Add from gram modal
+  const addGramToCart = () => {
+    if (!gramItem || gramQty <= 0) return;
+    const existing = cart.find(c => c.item.id === gramItem.id);
+    const pricePerGram = Number(gramItem.price_crc);
+    const totalPrice = pricePerGram * gramQty;
     
     if (existing) {
-      const newQty = existing.quantity + qty;
-      setCart(cart.map(c => c.item.id === item.id ? { ...c, quantity: newQty, subtotal: newQty * price } : c));
+      const newQty = existing.quantity + gramQty;
+      setCart(cart.map(c => c.item.id === gramItem.id ? { ...c, quantity: newQty, subtotal: newQty * pricePerGram } : c));
     } else {
-      setCart([...cart, { item, quantity: qty, subtotal: price }]);
+      setCart([...cart, { item: gramItem, quantity: gramQty, subtotal: totalPrice }]);
     }
+    setShowGramModal(false);
+    setGramItem(null);
+    setGramQty(0);
   };
 
   const updateQuantity = (itemId: string, delta: number) => {
@@ -843,6 +873,8 @@ const isFixedPrice = (item: Item) => {
         {currentView === 'sales' && (
           <>
             <TextField fullWidth size="small" placeholder="Buscar items..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} sx={{ mb: 1, bgcolor: 'white' }} />
+            
+            {/* Categories as horizontal scroll */}
             <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1 }}>
               <Button size="small" variant={selectedCategory === 'all' ? 'contained' : 'outlined'} onClick={() => { setSelectedCategory('all'); setSelectedSubcategory('all'); }}>Todos</Button>
               {categories.map(cat => {
@@ -852,16 +884,20 @@ const isFixedPrice = (item: Item) => {
                 );
               })}
             </Box>
+            
+            {/* Subcategories as dropdown */}
             {selectedCategory !== 'all' && getSubcategoriesForCategory(selectedCategory).length > 0 && (
-              <Box sx={{ display: 'flex', gap: 0.5, overflowX: 'auto', pb: 1, ml: 1 }}>
-                <Button size="small" variant={selectedSubcategory === 'all' ? 'contained' : 'outlined'} onClick={() => setSelectedSubcategory('all')}>Todos</Button>
-                {getSubcategoriesForCategory(selectedCategory).map(sub => {
-                  const subDisplay = (sub as any).name_es ? (sub.name.includes('/') ? sub.name : `${sub.name} / ${(sub as any).name_es}`) : sub.name;
-                  return (
-                    <Button key={sub.id} size="small" variant={selectedSubcategory === sub.id ? 'contained' : 'outlined'} onClick={() => setSelectedSubcategory(sub.id)}>{subDisplay}</Button>
-                  );
-                })}
-              </Box>
+              <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                <Select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)} sx={{ bgcolor: 'white' }}>
+                  <MenuItem value="all">Todas las subcategorías</MenuItem>
+                  {getSubcategoriesForCategory(selectedCategory).map(sub => {
+                    const subDisplay = (sub as any).name_es ? (sub.name.includes('/') ? sub.name : `${sub.name} / ${(sub as any).name_es}`) : sub.name;
+                    return (
+                      <MenuItem key={sub.id} value={sub.id}>{subDisplay}</MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
             )}
             <Grid container spacing={1.5}>
               {filteredItems.map(item => (
@@ -1138,6 +1174,64 @@ const isFixedPrice = (item: Item) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowAddCategory(false)}>Cerrar / Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Gram Input Modal for per-gram items */}
+      <Dialog open={showGramModal} onClose={() => setShowGramModal(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ textAlign: 'center', bgcolor: COLORS.primary, color: 'white' }}>
+          {gramItem?.name}
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
+          <Typography variant="h4" sx={{ color: COLORS.primary, fontWeight: 'bold', mb: 2 }}>
+            {gramItem ? formatCurrency(Number(gramItem.price_crc)) + '/g' : ''}
+          </Typography>
+          
+          {/* + Quick buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3, flexWrap: 'wrap' }}>
+            {[10, 25, 50, 100].map(amt => (
+              <Button 
+                key={amt} 
+                variant="outlined" 
+                onClick={() => setGramQty(amt)}
+                sx={{ minWidth: 60, borderColor: gramQty === amt ? COLORS.primary : 'grey.400', color: gramQty === amt ? COLORS.primary : 'grey.600' }}
+              >
+                +{amt}g
+              </Button>
+            ))}
+          </Box>
+          
+          {/* +/- buttons */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2 }}>
+            <IconButton onClick={() => setGramQty(Math.max(0, gramQty - 10))} sx={{ bgcolor: 'grey.200', '&:hover': { bgcolor: 'grey.300' } }}>
+              <Remove />
+            </IconButton>
+            <TextField
+              type="number"
+              value={gramQty}
+              onChange={(e) => setGramQty(Math.max(0, Number(e.target.value)))}
+              sx={{ width: 100, textAlign: 'center', '& input': { textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold' } }}
+              inputProps={{ style: { textAlign: 'center' } }}
+            />
+            <IconButton onClick={() => setGramQty(gramQty + 10)} sx={{ bgcolor: 'grey.200', '&:hover': { bgcolor: 'grey.300' } }}>
+              <Add />
+            </IconButton>
+          </Box>
+          
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Total: {gramItem ? formatCurrency(Number(gramItem.price_crc) * gramQty) : '₡0'}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+          <Button onClick={() => setShowGramModal(false)} sx={{ mr: 1 }}>Cancelar</Button>
+          <Button 
+            variant="contained" 
+            onClick={addGramToCart} 
+            disabled={gramQty <= 0}
+            sx={{ bgcolor: COLORS.primary, '&:hover': { bgcolor: COLORS.primaryDark } }}
+          >
+            Agregar al Carrito
+          </Button>
         </DialogActions>
       </Dialog>
 
