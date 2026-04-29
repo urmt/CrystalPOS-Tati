@@ -673,10 +673,11 @@ const isFixedPrice = (item: Item) => {
   const getSubcategoriesForCategory = (catId: string) => subcategories.filter(s => s.category_id === catId);
 
   const rawTotal = cart.reduce((sum, c) => {
+    const manualP = (c as any).manualPrice;
+    if (manualP) return sum + manualP; // Use manual total directly
     const basePrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
-    const unitPrice = (c as any).manualPrice || basePrice;
     const itemDiscount = (c as any).itemDiscount || 0;
-    return sum + (unitPrice * c.quantity * (1 - itemDiscount / 100));
+    return sum + (basePrice * c.quantity * (1 - itemDiscount / 100));
   }, 0);
   const cartItemDiscounts = cart.reduce((sum, c) => {
     const basePrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
@@ -985,8 +986,10 @@ const isFixedPrice = (item: Item) => {
                                 const newCart = [...cart];
                                 newCart[idx] = { ...newCart[idx], itemDiscount: pct };
                                 const manualP = (cartItem as any).manualPrice;
-                                const effectivePrice = manualP || unitPrice;
-                                const itemTotal = effectivePrice * cartItem.quantity * (1 - pct / 100);
+                                // If manual price, use that as total; otherwise use calculated
+                                const itemTotal = manualP 
+                                  ? manualP * (1 - pct / 100)
+                                  : unitPrice * cartItem.quantity * (1 - pct / 100);
                                 newCart[idx] = { ...newCart[idx], subtotal: itemTotal };
                                 setCart(newCart);
                               }}
@@ -997,23 +1000,24 @@ const isFixedPrice = (item: Item) => {
                           ))}
                         </Box>
                         
-                        {/* Manual price override */}
+                        {/* Manual price override - TOTAL price */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, justifyContent: 'center' }}>
                           <Typography variant="caption" sx={{ color: COLORS.darkText }}>Precio:</Typography>
                           <TextField
                             size="small"
                             type="number"
-                            placeholder={String(Math.round(unitPrice * cartItem.quantity))}
+                            placeholder={String(Math.round(cartItem.subtotal))}
                             value={(cartItem as any).manualPrice || ''}
                             onChange={(e) => {
-                              const newPrice = Number(e.target.value) || null;
+                              const manualTotal = Number(e.target.value) || null;
                               const newCart = [...cart];
                               const pct = (cartItem as any).itemDiscount || 0;
-                              const effectivePrice = newPrice || unitPrice;
+                              // Manual price = TOTAL line price (apply discount % on top)
+                              const finalTotal = manualTotal ? manualTotal * (1 - pct / 100) : cartItem.subtotal;
                               newCart[idx] = { 
                                 ...newCart[idx], 
-                                manualPrice: newPrice,
-                                subtotal: effectivePrice * cartItem.quantity * (1 - pct / 100)
+                                manualPrice: manualTotal,
+                                subtotal: finalTotal
                               };
                               setCart(newCart);
                             }}
