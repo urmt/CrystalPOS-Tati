@@ -1332,26 +1332,44 @@ const isFixedPrice = (item: Item) => {
                 <>
                   {/* Country code selector */}
                   <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                    <FormControl size="small" sx={{ minWidth: 90 }}>
+                    <FormControl size="small" sx={{ minWidth: 100 }}>
                       <Select value={countryCode} onChange={(e) => setCountryCode(e.target.value)} sx={{ bgcolor: 'white' }}>
                         <MenuItem value="+1">+1 US/CA</MenuItem>
+                        <MenuItem value="+52">+52 MX</MenuItem>
                         <MenuItem value="+506">+506 CR</MenuItem>
-                        <MenuItem value="+44">+44 UK</MenuItem>
-                        <MenuItem value="+54">+54 AR</MenuItem>
-                        <MenuItem value="+55">+55 BR</MenuItem>
                         <MenuItem value="+57">+57 CO</MenuItem>
                         <MenuItem value="+58">+58 VE</MenuItem>
+                        <MenuItem value="+54">+54 AR</MenuItem>
+                        <MenuItem value="+55">+55 BR</MenuItem>
+                        <MenuItem value="+39">+39 IT</MenuItem>
+                        <MenuItem value="+33">+33 FR</MenuItem>
+                        <MenuItem value="+34">+34 ES</MenuItem>
+                        <MenuItem value="+49">+49 DE</MenuItem>
+                        <MenuItem value="+31">+31 NL</MenuItem>
+                        <MenuItem value="__OTHER__">+ Other</MenuItem>
                       </Select>
                     </FormControl>
-                    <TextField 
-                      fullWidth
-                      size="small"
-                      label="Número / Phone"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, ''))}
-                      placeholder="8888 8888"
-                      sx={{ bgcolor: 'white' }}
-                    />
+                    {countryCode === '__OTHER__' ? (
+                      <TextField 
+                        fullWidth
+                        size="small"
+                        label="Código país"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="+XX"
+                        sx={{ bgcolor: 'white' }}
+                      />
+                    ) : (
+                      <TextField 
+                        fullWidth
+                        size="small"
+                        label="Número / Phone"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, ''))}
+                        placeholder="8888 8888"
+                        sx={{ bgcolor: 'white' }}
+                      />
+                    )}
                   </Box>
                   
                   <TextField 

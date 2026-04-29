@@ -38,8 +38,9 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, href: '/' },
   { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
   { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
-  { id: 'users', label: 'Users', icon: <People />, href: '/users' },
   { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
+  { id: 'customers', label: 'Customers', icon: <People />, href: '/customers' },
+  { id: 'users', label: 'Users', icon: <People />, href: '/users' },
   { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
 ];
 
