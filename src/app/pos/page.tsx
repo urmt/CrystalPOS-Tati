@@ -1047,9 +1047,9 @@ const isFixedPrice = (item: Item) => {
                   })}
                 </List>
                 
-                {/* Discount controls */}
+                {/* Discount buttons */}
                 <Paper sx={{ p: 2, mb: 2 }}>
-                  <Typography sx={{ mb: 1, fontWeight: 'bold' }}>Descuento / Discount</Typography>
+                  <Typography sx={{ mb: 1, fontWeight: 'bold' }}>Descuento / Descuento (%)</Typography>
                   <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                     {[0, 5, 10, 15, 20, 25].map(pct => (
                       <Button 
@@ -1063,15 +1063,27 @@ const isFixedPrice = (item: Item) => {
                       </Button>
                     ))}
                   </Box>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Descuento manual / Manual discount (CRC)"
-                    type="number"
-                    value={discountOverride !== null ? discountOverride : ''}
-                    onChange={(e) => setDiscountOverride(Number(e.target.value) || null)}
-                    sx={{ bgcolor: 'white' }}
-                  />
+                  
+                  {/* Final total override */}
+                  <Typography sx={{ mb: 1, fontWeight: 'bold' }}>Total Final / Total Final:</Typography>
+                  <Box 
+                    onClick={() => {
+                      setNumberPadItemIdx(-1); // -1 = cart-wide override
+                      setNumberPadValue(discountOverride ? String(discountOverride) : '');
+                      setShowNumberPad(true);
+                    }}
+                    sx={{ 
+                      cursor: 'pointer', p: 1, textAlign: 'center', borderRadius: 1, border: '1px dashed grey',
+                      '&:hover': { bgcolor: 'grey.100' }
+                    }}
+                  >
+                    <Typography sx={{ fontWeight: 'bold', color: COLORS.primary, fontSize: '1.3rem' }}>
+                      {discountOverride ? formatCurrency(discountOverride) : 'TAP'}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: COLORS.lightText }}>
+                      {discountOverride ? '(overrides all)' : 'tap to set final total'}
+                    </Typography>
+                  </Box>
                 </Paper>
                 
                 {/* Totals */}
@@ -1461,16 +1473,19 @@ const isFixedPrice = (item: Item) => {
           <Button 
             variant="contained" 
             onClick={() => {
-              if (numberPadItemIdx !== null && numberPadValue) {
+              const newTotal = Number(numberPadValue);
+              if (numberPadItemIdx === -1) {
+                // Cart-wide final total override
+                setDiscountOverride(newTotal);
+              } else if (numberPadItemIdx !== null && numberPadValue) {
+                // Individual item manual price
                 const newCart = [...cart];
                 const cartItem = newCart[numberPadItemIdx];
-                const manualTotal = Number(numberPadValue);
                 const pct = (cartItem as any).itemDiscount || 0;
-                // Manual price = TOTAL line price (apply discount % on top)
                 newCart[numberPadItemIdx] = { 
                   ...cartItem, 
-                  manualPrice: manualTotal,
-                  subtotal: manualTotal * (1 - pct / 100)
+                  manualPrice: newTotal,
+                  subtotal: newTotal * (1 - pct / 100)
                 };
                 setCart(newCart);
               }
