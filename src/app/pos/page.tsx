@@ -183,7 +183,7 @@ const PENDING_SALES_KEY = 'crystalpos_pending_sales';
 const DEVICE_ID_KEY = 'crystalpos_device_id';
 
 type PaymentMethod = 'cash' | 'sinpe' | 'card' | '';
-type POSView = 'sales' | 'inventory' | 'add' | 'dashboard' | 'gallery';
+type POSView = 'sales' | 'inventory' | 'add' | 'dashboard' | 'gallery' | 'cart';
 
 export default function POSPage() {
   const [currentView, setCurrentView] = useState<POSView>('sales');
@@ -920,6 +920,124 @@ const isFixedPrice = (item: Item) => {
           </>
         )}
 
+        {currentView === 'cart' && (
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2, color: COLORS.darkText }}>
+              Carrito / Cart ({cart.length} items)
+            </Typography>
+            
+            {cart.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography sx={{ color: COLORS.lightText, mb: 2 }}>El carrito está vacío / Cart is empty</Typography>
+                <Button variant="contained" onClick={() => setCurrentView('sales')} sx={{ bgcolor: COLORS.primary }}>
+                 .ir a Ventas / Go to Sales
+                </Button>
+              </Box>
+            ) : (
+              <>
+                <List sx={{ mb: 2 }}>
+                  {cart.map((cartItem, idx) => {
+                    const isPerGram = !isFixedPrice(cartItem.item);
+                    const unitPrice = isPerGram ? Number(cartItem.item.price_crc) : getDisplayPrice(cartItem.item);
+                    
+                    return (
+                      <ListItem key={idx} sx={{ bgcolor: 'white', borderRadius: 1, mb: 1, flexDirection: 'column', alignItems: 'stretch' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography sx={{ fontWeight: 'bold' }}>{cartItem.item.name}</Typography>
+                            <Typography variant="caption" sx={{ color: COLORS.lightText }}>
+                              {isPerGram ? `${formatCurrency(unitPrice)}/g` : formatCurrency(unitPrice)} {isPerGram ? `× ${cartItem.quantity}g` : `× ${cartItem.quantity} unidades`}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography sx={{ fontWeight: 'bold', color: COLORS.primary }}>
+                              {formatCurrency(cartItem.subtotal)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        
+                        {/* Quantity controls */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mt: 1 }}>
+                          <IconButton size="small" onClick={() => updateQuantity(cartItem.item.id, -1)} sx={{ bgcolor: 'grey.200' }}>
+                            <Remove />
+                          </IconButton>
+                          <Typography sx={{ minWidth: 50, textAlign: 'center', fontWeight: 'bold' }}>
+                            {cartItem.quantity}{isPerGram ? 'g' : ''}
+                          </Typography>
+                          <IconButton size="small" onClick={() => updateQuantity(cartItem.item.id, 1)} sx={{ bgcolor: 'grey.200' }}>
+                            <Add />
+                          </IconButton>
+                          
+                          <IconButton size="small" onClick={() => {
+                            setCart(cart.filter((_, i) => i !== idx));
+                          }} sx={{ ml: 2, color: COLORS.error }}>
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+                
+                {/* Discount controls */}
+                <Paper sx={{ p: 2, mb: 2 }}>
+                  <Typography sx={{ mb: 1, fontWeight: 'bold' }}>Descuento / Discount</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                    {[0, 5, 10, 15, 20, 25].map(pct => (
+                      <Button 
+                        key={pct}
+                        size="small"
+                        variant={discountPercent === pct ? 'contained' : 'outlined'}
+                        onClick={() => { setDiscountPercent(pct); setDiscountOverride(null); }}
+                        sx={{ minWidth: 50 }}
+                      >
+                        {pct}%
+                      </Button>
+                    ))}
+                  </Box>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Descuento manual / Manual discount (CRC)"
+                    type="number"
+                    value={discountOverride !== null ? discountOverride : ''}
+                    onChange={(e) => setDiscountOverride(Number(e.target.value) || null)}
+                    sx={{ bgcolor: 'white' }}
+                  />
+                </Paper>
+                
+                {/* Totals */}
+                <Paper sx={{ p: 2, mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography>Subtotal:</Typography>
+                    <Typography sx={{ fontWeight: 'bold' }}>{formatCurrency(rawTotal)}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography>Descuento:</Typography>
+                    <Typography sx={{ color: COLORS.error }}>-{formatCurrency(discountAmount)}</Typography>
+                  </Box>
+                  <Divider sx={{ my: 1 }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>Total:</Typography>
+                    <Typography sx={{ fontWeight: 'bold', fontSize: '1.2rem', color: COLORS.primary }}>{formatCurrency(finalTotal)}</Typography>
+                  </Box>
+                </Paper>
+                
+                {/* Checkout button */}
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  onClick={() => setShowCheckout(true)}
+                  sx={{ bgcolor: COLORS.success, color: 'white', py: 1.5 }}
+                >
+                  ir a Pagar / Go to Checkout →
+                </Button>
+              </>
+            )}
+          </Box>
+        )}
+
         {currentView === 'inventory' && (
           <Box>
             <Typography variant="h6" sx={{ mb: 2, color: COLORS.darkText }}>Inventario / Inventory ({items.length})</Typography>
@@ -1247,6 +1365,7 @@ const isFixedPrice = (item: Item) => {
         }} sx={{ bgcolor: 'white' }}>
         <BottomNavigationAction value="gallery" label="Galería" icon={<CollectionsBookmark />} />
         <BottomNavigationAction value="sales" label="Ventas" icon={<ShoppingCart />} />
+        <BottomNavigationAction value="cart" label="Carrito" icon={<Badge badgeContent={cart.length} color="secondary"><ShoppingCart /></Badge>} />
         <BottomNavigationAction value="inventory" label="Inventario" icon={<InventoryIcon />} />
         <BottomNavigationAction value="add" label="Agregar" icon={<Add />} />
         <BottomNavigationAction value="dashboard" label="Ajustes" icon={<DashboardIcon />} />
