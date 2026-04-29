@@ -982,11 +982,11 @@ const isFixedPrice = (item: Item) => {
                         {/* Per-item discount controls */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
                           <Typography variant="caption" sx={{ color: COLORS.darkText }}>Desc:</Typography>
-                          {[(cartItem as any).itemDiscount || 0, 5, 10, 15, 20, 25, 50].map(pct => (
+                          {[0, 5, 10, 15, 20, 25, 50].map(pct => (
                             <Button 
                               key={pct}
                               size="small"
-                              variant={(cartItem as any).itemDiscount === pct ? 'contained' : 'outlined'}
+                              variant={(cartItem as any).itemDiscount === pct || (pct === 0 && !(cartItem as any).itemDiscount) ? 'contained' : 'outlined'}
                               onClick={() => {
                                 const newCart = [...cart];
                                 newCart[idx] = { ...newCart[idx], itemDiscount: pct };
