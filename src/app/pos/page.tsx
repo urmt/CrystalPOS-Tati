@@ -353,6 +353,7 @@ export default function POSPage() {
     stopSlideshowRef.current();
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
+      setCurrentView('gallery');
       setIsIdle(true);
       startSlideshowRef.current();
     }, 60000); // 60 seconds
@@ -367,6 +368,7 @@ export default function POSPage() {
       stopSlideshowRef.current();
     } else {
       // Start manual slideshow
+      setCurrentView('gallery');
       setManualSlideshow(true);
       setIsIdle(true);
       startSlideshowRef.current();
@@ -1106,7 +1108,16 @@ const isFixedPrice = (item: Item) => {
         </DialogActions>
       </Dialog>
 
-      <BottomNavigation value={currentView} onChange={(_, v) => { setCurrentView(v); resetIdleTimer(); }} sx={{ bgcolor: 'white' }}>
+      <BottomNavigation value={currentView} onChange={(_, v) => { 
+          if (v !== currentView) {
+            if (manualSlideshow) {
+              setManualSlideshow(false);
+              stopSlideshowRef.current();
+            }
+            setCurrentView(v);
+            resetIdleTimer();
+          }
+        }} sx={{ bgcolor: 'white' }}>
         <BottomNavigationAction value="gallery" label="Galería" icon={<CollectionsBookmark />} />
         <BottomNavigationAction value="sales" label="Ventas" icon={<ShoppingCart />} />
         <BottomNavigationAction value="inventory" label="Inventario" icon={<InventoryIcon />} />
