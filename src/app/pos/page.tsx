@@ -142,6 +142,7 @@ interface CartItem {
   quantity: number;
   subtotal: number;
   itemDiscount?: number;
+  manualPrice?: number | null;
 }
 
 // =============================================================================
@@ -672,16 +673,22 @@ const isFixedPrice = (item: Item) => {
   const getSubcategoriesForCategory = (catId: string) => subcategories.filter(s => s.category_id === catId);
 
   const rawTotal = cart.reduce((sum, c) => {
-    const unitPrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
+    const basePrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
+    const unitPrice = (c as any).manualPrice || basePrice;
     const itemDiscount = (c as any).itemDiscount || 0;
     return sum + (unitPrice * c.quantity * (1 - itemDiscount / 100));
   }, 0);
   const cartItemDiscounts = cart.reduce((sum, c) => {
-    const unitPrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
+    const basePrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
+    const unitPrice = (c as any).manualPrice || basePrice;
     const itemDiscount = (c as any).itemDiscount || 0;
     return sum + (unitPrice * c.quantity * (itemDiscount / 100));
   }, 0);
-  const discountAmount = (discountPercent > 0 ? (cart.reduce((sum, c) => sum + c.subtotal, 0) * discountPercent / 100) : 0);
+  const discountAmount = (discountPercent > 0 ? (cart.reduce((sum, c) => {
+    const basePrice = isFixedPrice(c.item) ? getDisplayPrice(c.item) : Number(c.item.price_crc);
+    const unitPrice = (c as any).manualPrice || basePrice;
+    return sum + (unitPrice * c.quantity);
+  }, 0) * discountPercent / 100) : 0);
   const finalTotal = discountOverride !== null ? discountOverride : rawTotal - discountAmount;
   const cartTotal = finalTotal;
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
@@ -968,7 +975,7 @@ const isFixedPrice = (item: Item) => {
                         
                         {/* Per-item discount controls */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                          <Typography variant="caption" sx={{ color: COLORS.darkText }}>Descuento:</Typography>
+                          <Typography variant="caption" sx={{ color: COLORS.darkText }}>Desc:</Typography>
                           {[(cartItem as any).itemDiscount || 0, 5, 10, 15, 20, 25, 50].map(pct => (
                             <Button 
                               key={pct}
@@ -977,15 +984,41 @@ const isFixedPrice = (item: Item) => {
                               onClick={() => {
                                 const newCart = [...cart];
                                 newCart[idx] = { ...newCart[idx], itemDiscount: pct };
-                                const itemTotal = unitPrice * cartItem.quantity * (1 - pct / 100);
+                                const manualP = (cartItem as any).manualPrice;
+                                const effectivePrice = manualP || unitPrice;
+                                const itemTotal = effectivePrice * cartItem.quantity * (1 - pct / 100);
                                 newCart[idx] = { ...newCart[idx], subtotal: itemTotal };
                                 setCart(newCart);
                               }}
-                              sx={{ minWidth: 40, py: 0.25, px: 0.5, fontSize: '0.7rem' }}
+                              sx={{ minWidth: 35, py: 0.25, px: 0.5, fontSize: '0.65rem' }}
                             >
                               {pct}%
                             </Button>
                           ))}
+                        </Box>
+                        
+                        {/* Manual price override */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, justifyContent: 'center' }}>
+                          <Typography variant="caption" sx={{ color: COLORS.darkText }}>Precio:</Typography>
+                          <TextField
+                            size="small"
+                            type="number"
+                            placeholder={String(Math.round(unitPrice * cartItem.quantity))}
+                            value={(cartItem as any).manualPrice || ''}
+                            onChange={(e) => {
+                              const newPrice = Number(e.target.value) || null;
+                              const newCart = [...cart];
+                              const pct = (cartItem as any).itemDiscount || 0;
+                              const effectivePrice = newPrice || unitPrice;
+                              newCart[idx] = { 
+                                ...newCart[idx], 
+                                manualPrice: newPrice,
+                                subtotal: effectivePrice * cartItem.quantity * (1 - pct / 100)
+                              };
+                              setCart(newCart);
+                            }}
+                            sx={{ width: 90, '& input': { fontSize: '0.9rem', py: 0.5 } }}
+                          />
                         </Box>
                         
                         {/* Quantity controls */}
