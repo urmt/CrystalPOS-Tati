@@ -628,16 +628,16 @@ const isFixedPrice = (item: Item) => {
           // Check if customer exists
           const { data: existing } = await supabase
             .from('customers')
-            .select('id')
+            .select('id, total_purchases, purchase_count')
             .eq('phone', customerPhone)
             .eq('country_code', countryCode.replace('__OTHER_', ''))
             .single();
           
-          if (existing) {
+          if (existing && existing.id) {
             // Update existing customer
             await supabase.from('customers').update({
-              total_purchases: existing.total_purchases + finalTotal,
-              purchase_count: existing.purchase_count + 1,
+              total_purchases: (existing.total_purchases || 0) + finalTotal,
+              purchase_count: (existing.purchase_count || 0) + 1,
               last_purchase: new Date().toISOString().split('T')[0],
               name: customerName || undefined
             }).eq('id', existing.id);
@@ -1458,33 +1458,31 @@ const isFixedPrice = (item: Item) => {
                         <MenuItem value="__OTHER__">+ Other</MenuItem>
                       </Select>
                     </FormControl>
-                    {countryCode === '__OTHER__' ? (
-                      <TextField 
-                        fullWidth
-                        size="small"
-                        label="Código país"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="+XX"
-                        sx={{ bgcolor: 'white' }}
-                      />
-                    ) : (
-                      <TextField 
-                        fullWidth
-                        size="small"
-                        label="Número / Phone"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, ''))}
-                        placeholder="8888 8888"
-                        sx={{ bgcolor: 'white' }}
-                      />
-                    )}
+                    
+                    {/* Phone - tap to open number pad */}
+                    <Box 
+                      onClick={() => {
+                        setNumberPadItemIdx(-2); // -2 = phone
+                        setNumberPadValue(customerPhone);
+                        setShowNumberPad(true);
+                      }}
+                      sx={{ 
+                        flex: 1, p: 1.5, borderRadius: 1, border: '1px solid #ccc', bgcolor: 'white',
+                        cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' }
+                      }}
+                    >
+                      {customerPhone ? (
+                        <Typography sx={{ color: '#333' }}>{customerPhone}</Typography>
+                      ) : (
+                        <Typography sx={{ color: '#999' }}>Número (tap)</Typography>
+                      )}
+                    </Box>
                   </Box>
                   
-                  {/* Customer Name - tap to open text keypad */}
+                  {/* Customer Name - tap to open letter pad */}
                   <Box 
                     onClick={() => {
-                      setNumberPadItemIdx(-2); // -2 = name
+                      setNumberPadItemIdx(-3); // -3 = name
                       setNumberPadValue(customerName);
                       setShowNumberPad(true);
                     }}
@@ -1496,7 +1494,7 @@ const isFixedPrice = (item: Item) => {
                     {customerName ? (
                       <Typography sx={{ color: '#333' }}>{customerName}</Typography>
                     ) : (
-                      <Typography sx={{ color: '#999' }}>Nombre del cliente (tap para agregar)</Typography>
+                      <Typography sx={{ color: '#999' }}>Nombre (tap para letras)</Typography>
                     )}
                   </Box>
                 </>
@@ -1628,7 +1626,7 @@ const isFixedPrice = (item: Item) => {
         </DialogActions>
       </Dialog>
 
-      {/* Number Pad for manual price entry */}
+      {/* Number Pad - changes based on what we're editing */}
       <Dialog open={showNumberPad} onClose={() => setShowNumberPad(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ textAlign: 'center', bgcolor: COLORS.primary, color: 'white' }}>
           {numberPadItemIdx === -2 ? 'Número de Teléfono' : numberPadItemIdx === -3 ? 'Nombre del Cliente' : 'Ingresar Precio'}
@@ -1636,32 +1634,61 @@ const isFixedPrice = (item: Item) => {
         <DialogContent sx={{ pt: 3 }}>
           {/* Display */}
           <Typography variant="h4" sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2, color: COLORS.primary }}>
-            {numberPadItemIdx === -2 || numberPadItemIdx === -3 ? numberPadValue : numberPadValue ? formatCurrency(Number(numberPadValue)) : '₡0'}
+            {numberPadValue ? (numberPadItemIdx === -2 || numberPadItemIdx === -3 ? numberPadValue : formatCurrency(Number(numberPadValue))) : '₡0'}
           </Typography>
           
-          {/* Number pad */}
-          <Grid container spacing={1} sx={{ mb: 2 }}>
-            {['1','2','3','4','5','6','7','8','9','C','0','⌫'].map(key => (
-              <Grid size={4} key={key}>
-                <Button 
-                  fullWidth 
-                  variant="contained" 
-                  onClick={() => {
-                    if (key === 'C') {
-                      setNumberPadValue('');
-                    } else if (key === '⌫') {
-                      setNumberPadValue(prev => prev.slice(0, -1));
-                    } else {
-                      setNumberPadValue(prev => prev + key);
-                    }
-                  }}
-                  sx={{ py: 2, fontSize: '1.5rem', bgcolor: key === 'C' ? COLORS.error : key === '⌫' ? COLORS.warning : 'grey.300', color: 'black' }}
-                >
-                  {key}
-                </Button>
+          {/* For NAME (-3): Show letter buttons */}
+          {numberPadItemIdx === -3 ? (
+            <Grid container spacing={1} sx={{ mb: 2 }}>
+              {['Q','W','E','R','T','Y','U','I','O','P','A','S','D','F','G','H','J','K','L','Z','X','C','V','B','N','M','SPACE','⌫'].map(key => (
+                <Grid size={key === 'SPACE' ? 6 : 3} key={key}>
+                  <Button 
+                    fullWidth 
+                    variant="contained" 
+                    onClick={() => {
+                      if (key === '⌫') {
+                        setNumberPadValue(prev => prev.slice(0, -1));
+                      } else if (key === 'SPACE') {
+                        setNumberPadValue(prev => prev + ' ');
+                      } else {
+                        setNumberPadValue(prev => prev + key.toLowerCase());
+                      }
+                    }}
+                    sx={{ py: 1.5, fontSize: '1rem', bgcolor: 'grey.300', color: 'black', textTransform: 'none' }}
+                  >
+                    {key === 'SPACE' ? 'espacio' : key}
+                  </Button>
+                </Grid>
+              ))}
+              <Grid size={6}>
+                <Button fullWidth variant="contained" onClick={() => setNumberPadValue('')} sx={{ py: 1.5, bgcolor: COLORS.error, color: 'white' }}>Limpiar</Button>
               </Grid>
-            ))}
-          </Grid>
+            </Grid>
+          ) : (
+            /* For PHONE/PRICE: Show number buttons */
+            <Grid container spacing={1} sx={{ mb: 2 }}>
+              {['1','2','3','4','5','6','7','8','9','C','0','⌫'].map(key => (
+                <Grid size={4} key={key}>
+                  <Button 
+                    fullWidth 
+                    variant="contained" 
+                    onClick={() => {
+                      if (key === 'C') {
+                        setNumberPadValue('');
+                      } else if (key === '⌫') {
+                        setNumberPadValue(prev => prev.slice(0, -1));
+                      } else {
+                        setNumberPadValue(prev => prev + key);
+                      }
+                    }}
+                    sx={{ py: 2, fontSize: '1.5rem', bgcolor: key === 'C' ? COLORS.error : key === '⌫' ? COLORS.warning : 'grey.300', color: 'black' }}
+                  >
+                    {key}
+                  </Button>
+                </Grid>
+              ))}
+            </Grid>
+          )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
           <Button onClick={() => setShowNumberPad(false)} sx={{ mr: 1 }}>Cancelar</Button>
