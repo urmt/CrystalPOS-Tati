@@ -81,31 +81,38 @@ export default function ReportsPage() {
         const payments: Record<string, number> = { cash: 0, sinpe: 0, card: 0, lightning: 0 };
         const byHour: Record<number, number> = {};
         
-        // Calculate COGS (假设 cost_per_gram * quantity)
-        let totalCOGS = 0;
-        let itemSalesMap: Record<string, { qty: number; revenue: number; name: string; cost: number }> = {};
+        // Calculate sales summary
+      // Create items map for cost lookup
+      const itemsMap: Record<string, any> = {};
+      (itemsData || []).forEach(item => { itemsMap[item.id] = item; });
+      
+      let totalCOGS = 0;
+      let itemSalesMap: Record<string, { qty: number; revenue: number; name: string; cost: number }> = {};
+      
+      salesData.forEach(sale => {
+        const hour = new Date(sale.sale_date).getHours();
+        byHour[hour] = (byHour[hour] || 0) + (sale.total_crc || 0);
         
-        salesData.forEach(sale => {
-          const hour = new Date(sale.sale_date).getHours();
-          byHour[hour] = (byHour[hour] || 0) + (sale.total_crc || 0);
+        const method = (sale.payment_method || 'cash') as string;
+        if (method === 'sinpe' || method === 'cash' || method === 'card' || method === 'lightning') {
+          payments[method] = (payments[method] || 0) + (sale.total_crc || 0);
+        }
+        
+        (sale.items_sold || []).forEach((item: any) => {
+          // Get cost from items table
+          const itemData = itemsMap[item.item_id];
+          const costPerGram = itemData?.cost_per_gram || 0;
+          const cost = costPerGram * (item.qty_grams || 0);
+          totalCOGS += cost;
           
-          const method = (sale.payment_method || 'cash') as string;
-          if (method === 'sinpe' || method === 'cash' || method === 'card' || method === 'lightning') {
-            payments[method] = (payments[method] || 0) + (sale.total_crc || 0);
+          if (!itemSalesMap[item.item_id]) {
+            itemSalesMap[item.item_id] = { qty: 0, revenue: 0, name: item.name, cost: 0 };
           }
-          
-          (sale.items_sold || []).forEach((item: any) => {
-            const cost = (item.cost_per_gram || 0) * (item.qty_grams || 0);
-            totalCOGS += cost;
-            
-            if (!itemSalesMap[item.item_id]) {
-              itemSalesMap[item.item_id] = { qty: 0, revenue: 0, name: item.name, cost: 0 };
-            }
-            itemSalesMap[item.item_id].qty += item.qty_grams || 0;
-            itemSalesMap[item.item_id].revenue += item.price || 0;
-            itemSalesMap[item.item_id].cost += cost;
-          });
+          itemSalesMap[item.item_id].qty += item.qty_grams || 0;
+          itemSalesMap[item.item_id].revenue += item.price || 0;
+          itemSalesMap[item.item_id].cost += cost;
         });
+      });
 
         setSalesSummary({
           revenue: totalRevenue,
