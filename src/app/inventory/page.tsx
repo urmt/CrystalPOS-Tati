@@ -13,7 +13,7 @@ import {
   Inventory as InventoryIcon, Add, Edit, Delete, DeleteSweep, Download, Menu as MenuIcon, 
   Search, Refresh, Image as ImageIcon, Category as CategoryIcon,
   Dashboard as DashboardIcon, ShoppingCart, People, Settings, Assessment, Devices,
-  Save
+  Save, CheckCircle
 } from '@mui/icons-material';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { Item, Category as CategoryType, Subcategory } from '@/types';

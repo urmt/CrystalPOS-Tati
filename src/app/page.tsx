@@ -19,7 +19,8 @@ import {
   Refresh, 
   Logout,
   Assessment,
-  CheckCircle
+  CheckCircle,
+  Devices
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Sale, Item, User } from '@/types';
@@ -43,6 +44,7 @@ const navItems = [
   { id: 'todos', label: 'TODOs', icon: <CheckCircle />, href: '/todos' },
   { id: 'customers', label: 'Customers', icon: <People />, href: '/customers' },
   { id: 'users', label: 'Users', icon: <People />, href: '/users' },
+  { id: 'devices', label: 'Devices', icon: <Devices />, href: '/devices' },
   { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
 ];
 

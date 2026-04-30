@@ -40,10 +40,11 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
   { id: 'sales', label: 'Sales', icon: <ShoppingCart /> },
   { id: 'inventory', label: 'Inventory', icon: <Inventory /> },
-  { id: 'users', label: 'Users', icon: <People /> },
   { id: 'reports', label: 'Reports', icon: <Assessment /> },
-  { id: 'devices', label: 'Devices', icon: <Devices /> },
   { id: 'todos', label: 'TODOs', icon: <CheckCircle /> },
+  { id: 'customers', label: 'Customers', icon: <People /> },
+  { id: 'users', label: 'Users', icon: <People /> },
+  { id: 'devices', label: 'Devices', icon: <Devices /> },
   { id: 'settings', label: 'Settings', icon: <Settings /> },
 ];
 
