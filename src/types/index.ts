@@ -102,6 +102,17 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface Todo {
+  id: string;
+  request_text: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  created_by: string;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+}
+
 export interface Customer {
   id: string;
   phone: string;

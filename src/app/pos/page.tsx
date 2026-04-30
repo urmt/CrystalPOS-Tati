@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { logErrorAndAlert } from '@/lib/telegram';
-import { Item, Category as CategoryType, Subcategory } from '@/types';
+import { Item, Category as CategoryType, Subcategory, Todo } from '@/types';
 import { formatCurrency } from '@/utils/format';
 
 const COLORS = {
@@ -185,7 +185,7 @@ const PENDING_SALES_KEY = 'crystalpos_pending_sales';
 const DEVICE_ID_KEY = 'crystalpos_device_id';
 
 type PaymentMethod = 'cash' | 'sinpe' | 'card' | '';
-type POSView = 'sales' | 'inventory' | 'add' | 'dashboard' | 'gallery' | 'cart';
+type POSView = 'sales' | 'inventory' | 'add' | 'dashboard' | 'gallery' | 'cart' | 'todo';
 
 export default function POSPage() {
   const [currentView, setCurrentView] = useState<POSView>('sales');
@@ -271,6 +271,10 @@ export default function POSPage() {
   const [todaySalesCount, setTodaySalesCount] = useState(0);
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [todayItemsSold, setTodayItemsSold] = useState(0);
+  
+  // TODOs
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [newTodoText, setNewTodoText] = useState('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -414,6 +418,15 @@ export default function POSPage() {
       } catch (e) { console.log('Using default payment settings'); }
     };
     loadPaymentSettings();
+  }, []);
+
+  // Load todos
+  useEffect(() => {
+    const loadTodos = async () => {
+      const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false });
+      if (data) setTodos(data as Todo[]);
+    };
+    loadTodos();
   }, []);
 
   // Start idle timer after initial render (runs once)
@@ -1239,6 +1252,98 @@ variant="outlined"
           </Box>
         )}
 
+        {currentView === 'todo' && (
+          <Box sx={{ color: COLORS.darkText }}>
+            <Typography variant="h6" sx={{ mb: 2, color: COLORS.primary, fontWeight: 'bold' }}>
+              Notas / TODOs ({todos.filter(t => t.status === 'pending').length} pendientes)
+            </Typography>
+            
+            {/* Add new TODO */}
+            <Box sx={{ mb: 2, p: 2, bgcolor: 'white', borderRadius: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Nueva nota / New note..."
+                value={newTodoText}
+                onChange={(e) => setNewTodoText(e.target.value)}
+                sx={{ mb: 1 }}
+              />
+              <Button 
+                variant="contained" 
+                fullWidth 
+                disabled={!newTodoText.trim()}
+                onClick={async () => {
+                  if (!newTodoText.trim()) return;
+                  await supabase.from('todos').insert({
+                    request_text: newTodoText,
+                    created_by: 'tati',
+                    status: 'pending'
+                  });
+                  setNewTodoText('');
+                  const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false });
+                  if (data) setTodos(data as Todo[]);
+                }}
+              >
+                Agregar Nota / Add Note
+              </Button>
+            </Box>
+            
+            {/* TODO list */}
+            <List>
+              {todos.filter(t => t.status === 'pending').map(todo => (
+                <ListItem key={todo.id} sx={{ bgcolor: 'white', borderRadius: 1, mb: 1, flexDirection: 'column', alignItems: 'stretch' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
+                    <Typography sx={{ flex: 1 }}>{todo.request_text}</Typography>
+                    <Typography variant="caption" sx={{ color: COLORS.lightText }}>
+                      {todo.created_by === 'admin' ? '📋 Admin' : '📝 Tati'} • {new Date(todo.created_at).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button 
+                      size="small" 
+                      variant="contained" 
+                      color="success"
+                      onClick={async () => {
+                        await supabase.from('todos').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', todo.id);
+                        const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false });
+                        if (data) setTodos(data as Todo[]);
+                      }}
+                    >
+                      ✓ Listo / Done
+                    </Button>
+                    <Button 
+                      size="small" 
+                      variant="outlined" 
+                      color="error"
+                      onClick={async () => {
+                        await supabase.from('todos').delete().eq('id', todo.id);
+                        const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false });
+                        if (data) setTodos(data as Todo[]);
+                      }}
+                    >
+                      ✕ Eliminar
+                    </Button>
+                  </Box>
+                </ListItem>
+              ))}
+              {todos.filter(t => t.status === 'pending').length === 0 && (
+                <Typography sx={{ color: COLORS.lightText, textAlign: 'center', py: 4 }}>
+                  No hay notas pendientes / No pending notes
+                </Typography>
+              )}
+            </List>
+            
+            {/* Show completed (can hide them) */}
+            {todos.filter(t => t.status === 'done').length > 0 && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, color: COLORS.lightText }}>
+                  Completadas / Done ({todos.filter(t => t.status === 'done').length})
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        )}
+
         {currentView === 'inventory' && (
           <Box>
             <Typography variant="h6" sx={{ mb: 2, color: COLORS.darkText }}>Inventario / Inventory ({items.length})</Typography>
@@ -1792,6 +1897,7 @@ variant="outlined"
         <BottomNavigationAction value="sales" label="Ventas" icon={<Home />} />
         <BottomNavigationAction value="gallery" label="Galería" icon={<Image />} />
         <BottomNavigationAction value="cart" label="Carrito" icon={<Badge badgeContent={cart.length} color="secondary"><ShoppingCart /></Badge>} />
+        <BottomNavigationAction value="todo" label="Notas" icon={<Badge badgeContent={todos.filter(t => t.status === 'pending').length} color="warning"><InventoryIcon /></Badge>} />
         <BottomNavigationAction value="inventory" label="Inventario" icon={<InventoryIcon />} />
         <BottomNavigationAction value="add" label="Agregar" icon={<Add />} />
         <BottomNavigationAction value="dashboard" label="Ajustes" icon={<DashboardIcon />} />
