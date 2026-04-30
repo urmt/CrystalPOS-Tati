@@ -25,6 +25,7 @@ const navItems = [
   { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
   { id: 'inventory', label: 'Inventory', icon: <InventoryIcon />, href: '/inventory' },
   { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
+  { id: 'todos', label: 'TODOs', icon: <CheckCircle />, href: '/todos' },
   { id: 'customers', label: 'Customers', icon: <People />, href: '/customers' },
   { id: 'users', label: 'Users', icon: <People />, href: '/users' },
   { id: 'devices', label: 'Devices', icon: <Devices />, href: '/devices' },

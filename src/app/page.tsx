@@ -18,7 +18,8 @@ import {
   Menu as MenuIcon,
   Refresh, 
   Logout,
-  Assessment
+  Assessment,
+  CheckCircle
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Sale, Item, User } from '@/types';
@@ -39,6 +40,7 @@ const navItems = [
   { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
   { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
   { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
+  { id: 'todos', label: 'TODOs', icon: <CheckCircle />, href: '/todos' },
   { id: 'customers', label: 'Customers', icon: <People />, href: '/customers' },
   { id: 'users', label: 'Users', icon: <People />, href: '/users' },
   { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },

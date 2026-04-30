@@ -5,7 +5,7 @@ import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, Paper, TextField, InputAdornment, List, ListItem, ListItemText, Chip
 } from '@mui/material';
-import { Search, Download, Refresh, Dashboard as DashboardIcon, ShoppingCart, Inventory, Settings, Assessment } from '@mui/icons-material';
+import { Search, Download, Refresh, Dashboard as DashboardIcon, ShoppingCart, Inventory, Settings, Assessment, CheckCircle } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Customer } from '@/types';
 
@@ -15,6 +15,7 @@ const navItems = [
   { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
   { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
   { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
+  { id: 'todos', label: 'TODOs', icon: <CheckCircle />, href: '/todos' },
   { id: 'customers', label: 'Customers', icon: <Assessment />, href: '/customers' },
   { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
 ];

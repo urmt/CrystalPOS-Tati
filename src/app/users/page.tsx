@@ -7,7 +7,7 @@ import {
   DialogActions, TextField, FormControl, InputLabel, Select, Switch, MenuItem,
   Drawer, List, ListItem, ListItemIcon, ListItemText, Divider, IconButton
 } from '@mui/material';
-import { People, Add, Edit, Delete, Menu as MenuIcon, Dashboard as DashboardIcon, ShoppingCart, Inventory, Settings, Assessment, Devices } from '@mui/icons-material';
+import { People, Add, Edit, Delete, Menu as MenuIcon, Dashboard as DashboardIcon, ShoppingCart, Inventory, Settings, Assessment, Devices, CheckCircle } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
 
@@ -17,6 +17,7 @@ const navItems = [
   { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
   { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
   { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
+  { id: 'todos', label: 'TODOs', icon: <CheckCircle />, href: '/todos' },
   { id: 'customers', label: 'Customers', icon: <People />, href: '/customers' },
   { id: 'users', label: 'Users', icon: <People />, href: '/users' },
   { id: 'devices', label: 'Devices', icon: <Devices />, href: '/devices' },
