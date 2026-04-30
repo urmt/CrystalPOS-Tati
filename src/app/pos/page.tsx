@@ -256,6 +256,9 @@ export default function POSPage() {
   const [countryCode, setCountryCode] = useState('+506');
   const [wantReceipt, setWantReceipt] = useState(false);
   
+  // Online/Offline mode toggle
+  const [offlineMode, setOfflineMode] = useState(false);
+  
   // Today's sales stats
   const [todaySalesCount, setTodaySalesCount] = useState(0);
   const [todayRevenue, setTodayRevenue] = useState(0);
@@ -621,7 +624,9 @@ const isFixedPrice = (item: Item) => {
       server_created_at: new Date().toISOString(), last_modified_at: new Date().toISOString()
     };
 
-    if (isOnline) {
+    const isOffline = offlineMode || !isOnline;
+    
+    if (!isOffline) {
       try {
         // Save/update customer if they want receipt
         if (wantReceipt && fullPhone && customerPhone) {
@@ -664,14 +669,16 @@ const isFixedPrice = (item: Item) => {
         return true;
       } catch (err) { console.error('Online sale failed:', err); }
     }
-    try {
-      const pending = JSON.parse(localStorage.getItem(PENDING_SALES_KEY) || '[]');
-      pending.push({...saleData, _customerWantReceipt: wantReceipt});
-      localStorage.setItem(PENDING_SALES_KEY, JSON.stringify(pending));
-      setCart([]); setShowCheckout(false); setPaymentMethod(''); setDiscountPercent(0); setDiscountOverride(null);
-      setCustomerPhone(''); setCustomerName(''); setWantReceipt(false);
-      return true;
-    } catch (err) { return false; }
+    if (isOffline) {
+      try {
+        const pending = JSON.parse(localStorage.getItem(PENDING_SALES_KEY) || '[]');
+        pending.push({...saleData, _customerWantReceipt: wantReceipt});
+        localStorage.setItem(PENDING_SALES_KEY, JSON.stringify(pending));
+        setCart([]); setShowCheckout(false); setPaymentMethod(''); setDiscountPercent(0); setDiscountOverride(null);
+        setCustomerPhone(''); setCustomerName(''); setWantReceipt(false);
+        return true;
+      } catch (err) { return false; }
+    }
   };
 
   const handleCheckout = async () => {
@@ -808,7 +815,11 @@ const isFixedPrice = (item: Item) => {
         <Toolbar>
           <Typography variant="h6" sx={{ flex: 1, fontFamily: "'Brush Script MT', 'Brush Script Std', 'Lucida Calligraphy', 'Lucida Handwriting', cursive", fontSize: '1.8rem', fontWeight: 'bold', color: '#D4AF37', textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>Crystales Tati</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {!isOnline && <WifiOff color="warning" />}
+            {offlineMode ? (
+              <Chip label="OFFLINE" color="error" size="small" onClick={() => setOfflineMode(false)} clickable sx={{ cursor: 'pointer' }} />
+            ) : (
+              <Chip label="ONLINE" color="success" size="small" onClick={() => setOfflineMode(true)} clickable sx={{ cursor: 'pointer' }} />
+            )}
             {syncing && <Sync className="spin" />}
             <Tooltip title={manualSlideshow ? "Detener presentación" : "Iniciar presentación"} arrow>
               <IconButton 
