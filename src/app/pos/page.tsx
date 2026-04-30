@@ -858,20 +858,27 @@ const isFixedPrice = (item: Item) => {
             </Tooltip>
             <Button 
               size="small" 
-              variant="outlined"
+variant="outlined"
               onClick={async () => {
-                if (!isOnline) { alert('Sin conexión / No internet'); return; }
                 setSyncing(true);
                 try {
+                  // Always sync pending sales first
                   await syncPendingSales();
                   await fetchData();
+                  
+                  // Reload payment settings from database
+                  const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'payments').single();
+                  if (data?.setting_value) {
+                    setPaymentSettings(data.setting_value);
+                  }
+                  
                   alert('Sincronizado / Synced!');
                 } catch (e) { alert('Error de sincronización / Sync error'); }
                 finally { setSyncing(false); }
               }}
               sx={{ color: '#D4AF37', borderColor: '#D4AF37', fontSize: '0.7rem', py: 0.5, px: 1, minWidth: 'auto' }}
             >
-              SYNC
+            SYNC
             </Button>
             <Badge badgeContent={cartCount} color="secondary"><ShoppingCart /></Badge>
           </Box>
