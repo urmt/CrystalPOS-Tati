@@ -121,12 +121,13 @@ export default function SalesPage() {
         {isLoading && <LinearProgress />}
         <TableContainer component={Paper}>
           <Table size="small">
-            <TableHead><TableRow><TableCell>Date</TableCell><TableCell>Items</TableCell><TableCell align="right">Subtotal</TableCell><TableCell align="right">Tax</TableCell><TableCell align="right">Total</TableCell><TableCell>Payment</TableCell><TableCell>Status</TableCell></TableRow></TableHead>
+            <TableHead><TableRow><TableCell>Date</TableCell><TableCell>Items</TableCell><TableCell>Customer</TableCell><TableCell align="right">Subtotal</TableCell><TableCell align="right">Tax</TableCell><TableCell align="right">Total</TableCell><TableCell>Payment</TableCell><TableCell>Status</TableCell></TableRow></TableHead>
             <TableBody>
               {filteredSales.map(sale => (
                 <TableRow key={sale.id}>
                   <TableCell>{formatDate(sale.sale_date, 'time')}</TableCell>
                   <TableCell>{sale.items_sold?.length || 0}</TableCell>
+                  <TableCell>{(sale as any).customer_phone ? `${(sale as any).customer_phone}` : '-'} {(sale as any).customer_name ? `(${ (sale as any).customer_name })` : ''}</TableCell>
                   <TableCell align="right">{formatCurrency(Number(sale.subtotal_crc))}</TableCell>
                   <TableCell align="right">{formatCurrency(Number(sale.tax_crc))}</TableCell>
                   <TableCell align="right">{formatCurrency(Number(sale.total_crc))}</TableCell>
