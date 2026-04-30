@@ -27,12 +27,23 @@ export default function CustomersPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('customers')
         .select('*')
         .order('last_purchase', { ascending: false });
-      if (data) setCustomers(data as Customer[]);
-    } catch (e) { console.error('Error fetching customers:', e); }
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        alert('Error: ' + error.message);
+      }
+      if (data) {
+        console.log('Customers fetched:', data);
+        setCustomers(data as Customer[]);
+      }
+    } catch (e) { 
+      console.error('Error fetching customers:', e); 
+      alert('Error: ' + e);
+    }
     setIsLoading(false);
   };
 
