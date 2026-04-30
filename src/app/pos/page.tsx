@@ -627,18 +627,23 @@ const isFixedPrice = (item: Item) => {
     const isOffline = offlineMode || !isOnline;
     
     if (!isOffline) {
+      console.log('CREATE SALE: Starting - wantReceipt=', wantReceipt, 'countryCode=', countryCode);
       try {
         // Save/update customer if they want receipt
         if (wantReceipt && fullPhone && customerPhone) {
+          console.log('CREATE SALE: Saving customer - phone=', customerPhone, 'name=', customerName);
           // Check if customer exists
-          const { data: existing } = await supabase
+          const { data: existing, error: custError } = await supabase
             .from('customers')
             .select('id, total_purchases, purchase_count')
             .eq('phone', customerPhone)
             .eq('country_code', countryCode.replace('__OTHER_', ''))
             .single();
           
+          console.log('CREATE SALE: Customer lookup result - data=', existing, 'error=', custError);
+          
           if (existing && existing.id) {
+            console.log('CREATE SALE: Updating existing customer');
             // Update existing customer
             await supabase.from('customers').update({
               total_purchases: (existing.total_purchases || 0) + finalTotal,
@@ -647,8 +652,9 @@ const isFixedPrice = (item: Item) => {
               name: customerName || undefined
             }).eq('id', existing.id);
           } else {
+            console.log('CREATE SALE: Inserting new customer');
             // Insert new customer
-            await supabase.from('customers').insert({
+            const { error: insertError } = await supabase.from('customers').insert({
               phone: customerPhone,
               country_code: countryCode.replace('__OTHER_', ''),
               name: customerName || null,
@@ -656,11 +662,13 @@ const isFixedPrice = (item: Item) => {
               purchase_count: 1,
               last_purchase: new Date().toISOString().split('T')[0]
             });
+            console.log('CREATE SALE: Insert result error=', insertError);
           }
         }
 
         const { error } = await supabase.from('sales').insert(saleData);
         if (error) throw error;
+        console.log('CREATE SALE: Sale saved successfully');
         
         // Reset after successful sale
         setCart([]); setShowCheckout(false); setPaymentMethod(''); setDiscountPercent(0); setDiscountOverride(null);
