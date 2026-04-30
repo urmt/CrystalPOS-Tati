@@ -259,6 +259,14 @@ export default function POSPage() {
   // Online/Offline mode toggle
   const [offlineMode, setOfflineMode] = useState(false);
   
+  // Payment settings from admin
+  const [paymentSettings, setPaymentSettings] = useState({
+    cash_enabled: true,
+    sinpe_enabled: true,
+    card_enabled: true,
+    lightning_enabled: false
+  });
+  
   // Today's sales stats
   const [todaySalesCount, setTodaySalesCount] = useState(0);
   const [todayRevenue, setTodayRevenue] = useState(0);
@@ -396,6 +404,17 @@ export default function POSPage() {
       }
     } catch (err) { console.error('Error fetching today sales:', err); }
   };
+
+  // Load payment settings
+  useEffect(() => {
+    const loadPaymentSettings = async () => {
+      try {
+        const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'payments').single();
+        if (data?.setting_value) setPaymentSettings(data.setting_value);
+      } catch (e) { console.log('Using default payment settings'); }
+    };
+    loadPaymentSettings();
+  }, []);
 
   // Start idle timer after initial render (runs once)
   useEffect(() => {
@@ -1437,9 +1456,18 @@ const isFixedPrice = (item: Item) => {
             <Typography sx={{ mb: 1, color: COLORS.lightText }}>Método de Pago / Payment Method:</Typography>
             <FormControl fullWidth>
               <RadioGroup row value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
-                <FormControlLabel value="cash" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>Efectivo / Cash</Typography>} />
-                <FormControlLabel value="sinpe" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>SINPE</Typography>} />
-                <FormControlLabel value="card" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>Tarjeta / Card</Typography>} />
+                {paymentSettings.cash_enabled && (
+                  <FormControlLabel value="cash" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>Efectivo / Cash</Typography>} />
+                )}
+                {paymentSettings.sinpe_enabled && (
+                  <FormControlLabel value="sinpe" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>SINPE</Typography>} />
+                )}
+                {paymentSettings.card_enabled && (
+                  <FormControlLabel value="card" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>Tarjeta / Card</Typography>} />
+                )}
+                {paymentSettings.lightning_enabled && (
+                  <FormControlLabel value="lightning" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>BTC/LN</Typography>} />
+                )}
               </RadioGroup>
             </FormControl>
             
