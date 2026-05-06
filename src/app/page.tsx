@@ -56,13 +56,27 @@ export default function DashboardPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState('today');
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return d.toISOString();
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString());
   const [drawerOpen, setDrawerOpen] = useState(true);
   
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      // Get date strings in Costa Rica timezone (UTC-6)
+      const startStr = startDate.split('T')[0];
+      const endStr = endDate.split('T')[0];
+      
       const [salesRes, itemsRes, usersRes] = await Promise.all([
-        supabase.from('sales').select('*').order('sale_date', { ascending: false }).limit(100),
+        supabase.from('sales')
+          .select('*')
+          .gte('sale_date', startStr + 'T00:00:00')
+          .lte('sale_date', endStr + 'T23:59:59')
+          .order('sale_date', { ascending: false }),
         supabase.from('items').select('*').order('name'),
         supabase.from('users').select('*').order('email'),
       ]);
@@ -77,8 +91,36 @@ export default function DashboardPage() {
   };
   
   useEffect(() => { 
-    fetchData(); 
+    const now = new Date();
+    let start: Date, end: Date;
+    switch (period) {
+      case 'today':
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = now;
+        break;
+      case 'week':
+        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        end = now;
+        break;
+      case 'month':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = now;
+        break;
+      case 'year':
+        start = new Date(now.getFullYear(), 0, 1);
+        end = now;
+        break;
+      default:
+        start = new Date(0);
+        end = now;
+    }
+    setStartDate(start.toISOString());
+    setEndDate(end.toISOString());
   }, [period]);
+  
+  useEffect(() => { 
+    fetchData(); 
+  }, [startDate, endDate]);
   
   const filteredSales = useMemo(() => {
     const now = new Date();
@@ -124,8 +166,8 @@ export default function DashboardPage() {
           },
         }}
       >
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {drawerOpen && <Typography variant="h6" fontWeight="bold">CrystalPOS</Typography>}
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'white' }}>
+          {drawerOpen && <Typography variant="h6" fontWeight="bold"><Box component="span" sx={{ color: '#D4AF37' }}>Mark</Box><Box component="span" sx={{ color: '#2E7D32' }}>et</Box><Box component="span" sx={{ color: '#D4AF37' }}>POS</Box></Typography>}
           <IconButton onClick={() => setDrawerOpen(!drawerOpen)} sx={{ color: 'white' }}>
             <MenuIcon />
           </IconButton>
@@ -223,6 +265,31 @@ export default function DashboardPage() {
                 <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>{users.filter(u => u.is_active).length}</Typography>
               </CardContent>
             </Card>
+          </Grid>
+        </Grid>
+        
+        {/* Quick Actions */}
+        <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>Quick Actions / Acciones Rápidas</Typography>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Button variant="contained" fullWidth href="/pos" sx={{ py: 2, bgcolor: COLORS.primary, '&:hover': { bgcolor: COLORS.primaryDark } }}>
+              <ShoppingCart sx={{ mr: 1 }} /> Nueva Venta
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Button variant="contained" fullWidth href="/inventory" sx={{ py: 2, bgcolor: COLORS.secondary, color: 'black', '&:hover': { bgcolor: '#C5A028' } }}>
+              <Inventory sx={{ mr: 1 }} /> Inventario
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Button variant="contained" fullWidth href="/reports" sx={{ py: 2, bgcolor: COLORS.accent, '&:hover': { bgcolor: '#1A9A94' } }}>
+              <Assessment sx={{ mr: 1 }} /> Reportes
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Button variant="contained" fullWidth href="/todos" sx={{ py: 2, bgcolor: COLORS.warning, color: 'black', '&:hover': { bgcolor: '#E68900' } }}>
+              <CheckCircle sx={{ mr: 1 }} /> Notas
+            </Button>
           </Grid>
         </Grid>
         

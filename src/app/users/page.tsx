@@ -69,8 +69,8 @@ export default function UsersPage() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
       <Drawer variant="permanent" sx={{ width: drawerOpen ? COLORS.drawerWidth : 72, '& .MuiDrawer-paper': { width: drawerOpen ? COLORS.drawerWidth : 72, bgcolor: COLORS.primary, color: 'white' } }}>
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {drawerOpen && <Typography variant="h6" fontWeight="bold">CrystalPOS</Typography>}
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'white' }}>
+          {drawerOpen && <Typography variant="h6" fontWeight="bold"><Box component="span" sx={{ color: '#D4AF37' }}>Mark</Box><Box component="span" sx={{ color: '#2E7D32' }}>et</Box><Box component="span" sx={{ color: '#D4AF37' }}>POS</Box></Typography>}
           <IconButton onClick={() => setDrawerOpen(!drawerOpen)} sx={{ color: 'white' }}><MenuIcon /></IconButton>
         </Box>
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />

@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const [businessSettings, setBusinessSettings] = useState({ 
     business_name: 'Crystal Market', 
     business_name_size: 'normal',
+    business_tagline: 'por Tati',
     business_email: 'info@crystalmarket.com', 
     business_phone: '+506 1234 5678', 
     address: 'Costa Rica' 
@@ -120,8 +121,8 @@ export default function SettingsPage() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
       <Drawer variant="permanent" sx={{ width: 240, '& .MuiDrawer-paper': { width: 240, bgcolor: '#6B4C9A', color: 'white' } }}>
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6" fontWeight="bold">CrystalPOS</Typography>
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'white' }}>
+          <Typography variant="h6" fontWeight="bold"><Box component="span" sx={{ color: '#D4AF37' }}>Mark</Box><Box component="span" sx={{ color: '#2E7D32' }}>et</Box><Box component="span" sx={{ color: '#D4AF37' }}>POS</Box></Typography>
         </Box>
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
         <List>
@@ -163,6 +164,8 @@ export default function SettingsPage() {
                   <MenuItem value="small">Pequeño / Small (50%)</MenuItem>
                 </Select>
               </FormControl>
+              
+              <TextField fullWidth label="Texto Secondary / Tagline (e.g., 'por Tati')" value={businessSettings.business_tagline} onChange={(e) => setBusinessSettings({ ...businessSettings, business_tagline: e.target.value })} sx={{ mb: 2 }} />
               
               <TextField fullWidth label="Correo / Email" value={businessSettings.business_email} onChange={(e) => setBusinessSettings({ ...businessSettings, business_email: e.target.value })} sx={{ mb: 2 }} />
               <TextField fullWidth label="Teléfono / Phone" value={businessSettings.business_phone} onChange={(e) => setBusinessSettings({ ...businessSettings, business_phone: e.target.value })} sx={{ mb: 2 }} />

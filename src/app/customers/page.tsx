@@ -5,25 +5,19 @@ import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, Paper, TextField, InputAdornment, List, ListItem, ListItemText, Chip
 } from '@mui/material';
-import { Search, Download, Refresh, Dashboard as DashboardIcon, ShoppingCart, Inventory, Settings, Assessment, CheckCircle } from '@mui/icons-material';
+import { Search, Download, Refresh } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Customer } from '@/types';
+import AdminSidebar from '@/components/AdminSidebar';
+import { formatCurrency } from '@/utils/format';
 
 const COLORS = { primary: '#6B4C9A', secondary: '#D4AF37' };
-const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, href: '/' },
-  { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
-  { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
-  { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
-  { id: 'todos', label: 'TODOs', icon: <CheckCircle />, href: '/todos' },
-  { id: 'customers', label: 'Customers', icon: <Assessment />, href: '/customers' },
-  { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
-];
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(true);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -84,34 +78,10 @@ export default function CustomersPage() {
   const totalRevenue = customers.reduce((sum, c) => sum + (c.total_purchases || 0), 0);
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      {/* Sidebar */}
-      <Paper sx={{ width: 220, p: 2, borderRadius: 0 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', color: COLORS.primary, mb: 4 }}>
-          💎 CrystalPOS
-        </Typography>
-        <List>
-          {navItems.map(item => (
-            <ListItem 
-              key={item.id}
-              component="a" 
-              href={item.href}
-              sx={{ 
-                borderRadius: 1, 
-                mb: 0.5,
-                bgcolor: item.id === 'customers' ? COLORS.primary : 'transparent',
-                color: item.id === 'customers' ? 'white' : '#333',
-                '&:hover': { bgcolor: item.id === 'customers' ? COLORS.primary : '#eee' }
-              }}
-            >
-              <ListItemText primary={item.label} />
-            </ListItem>
-          ))}
-        </List>
-      </Paper>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
+      <AdminSidebar currentPage="customers" collapsed={!drawerOpen} onToggle={() => setDrawerOpen(!drawerOpen)} />
 
-      {/* Main Content */}
-      <Box sx={{ flex: 1, p: 3 }}>
+      <Box component="main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold', color: COLORS.primary }}>
             Customers ({totalCustomers})

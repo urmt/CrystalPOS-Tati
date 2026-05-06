@@ -17,7 +17,7 @@ export interface AlertMessage {
 export async function sendTelegramAlert(alert: AlertMessage): Promise<boolean> {
   const timestamp = alert.timestamp || new Date().toISOString();
   const text = `
-🚨 *CrystalPOS Alert*
+🚨 *MarketPOS Alert*
 
 *${alert.title}*
 ${alert.message}

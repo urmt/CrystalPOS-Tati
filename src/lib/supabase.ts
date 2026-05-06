@@ -2,7 +2,7 @@
 // SUPABASE CLIENT
 // Version: 1.1
 // Date: April 15, 2026
-// Description: Supabase client setup for CrystalPOS admin portal
+// Description: Supabase client setup for MarketPOS admin portal
 // =============================================================================
 
 import { createClient } from '@supabase/supabase-js';

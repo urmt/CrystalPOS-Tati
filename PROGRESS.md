@@ -1,12 +1,46 @@
 # CrystalPOS Project Progress Log
 
 ## Project Overview
-- **Name**: CrystalPOS (Point of Sale for Crystales Tati)
+- **Name**: CrystalPOS (CrystalPOS / Despertar de Cristales)
 - **GitHub**: https://github.com/urmt/CrystalPOS-Tati
-- **Live URL**: https://thriving-blancmange-d3d7e9.netlify.app
-- **Admin URL**: https://thriving-blancmange-d3d7e9.netlify.app (root)
-- **iPad POS URL**: https://thriving-blancmange-d3d7e9.netlify.app/pos
+- **Live URL**: https://melodic-baklava-327e68.netlify.app (check Netlify dashboard for current)
+- **Admin URL**: https://melodic-baklava-327e68.netlify.app (root)
+- **iPad POS URL**: https://melodic-baklava-327e68.netlify.app/pos
 - **Backend**: Supabase (PostgreSQL)
+
+---
+
+## CODE AUDIT FINDINGS - Reports (May 2026)
+
+### Issues Found & Fixed:
+1. ✅ Sale type missing `device_id` field - FIXED (added to types/index.ts)
+2. ⚠️ Reports page: uses `device_id` but it's never saved in sales - NEEDS FIX in POS
+3. ⚠️ Reports page: Top Sellers calculates margin using cost - needs verification
+4. ⚠️ Slow Movers: uses qty sold, not revenue - needs verification
+
+### Verified Working (Reports):
+- ✅ Sales Summary: Revenue, count, avg, COGS, gross profit - WORKING
+- ✅ Payment Breakdown: cash, sinpe, card, lightning - WORKING
+- ✅ Inventory Report: Stock kg, cost, retail, margin - WORKING
+- ✅ Sales Detail: Date, items, total, method, status - WORKING
+- ✅ Low Stock Alert: Days calculation - WORKING
+- ⚠️ Top Sellers: Revenue by item - needs verification against actual sales
+- ⚠️ Slow Movers: Sort by qty (ascending) - logic OK
+
+### Data Fields Used:
+| Field | Table | Used In | Status |
+|-------|-------|--------|--------|
+| total_crc | sales | Reports | ✅ Working |
+| subtotal_crc | sales | Reports | ✅ Working |
+| discount_crc | sales | Reports | ✅ Working |
+| payment_method | sales | Reports | ✅ Working |
+| items_sold | sales | Reports | ✅ Working |
+| sale_date | sales | Reports | ✅ Working |
+| device_id | sales | Reports | ⚠️ Not saved |
+| current_weight_grams | items | Inventory | ✅ Working |
+| cost_per_gram | items | COGS calc | ✅ Working |
+| price_crc | items | Revenue calc | ✅ Working |
+| depletion_rate_grams_per_day | items | Days calc | ✅ Working |
 
 ---
 
