@@ -213,7 +213,7 @@ export default function POSPage() {
 
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItem, setNewItem] = useState({
-    name: '', sku: '', price_crc: 0, suggested_price_crc: 0, cost_per_gram: 0,
+name: '', sku: '', price_crc: 0, cost_per_gram: 0,
     current_weight_grams: 0, min_threshold_grams: 100,
     category_id: '', subcategory_id: '', description: '', image_url: ''
   });
@@ -230,6 +230,7 @@ export default function POSPage() {
   const carouselRef = useRef<HTMLDivElement>(null);
   const startSlideshowRef = useRef<() => void>(() => {});
   const stopSlideshowRef = useRef<() => void>(() => {});
+  const galleryNavigatingRef = useRef(false);
   
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [isIdle, setIsIdle] = useState(false);
@@ -267,6 +268,9 @@ export default function POSPage() {
     lightning_enabled: false
   });
   
+  // Business name from settings (loaded on sync)
+  const [businessName, setBusinessName] = useState('Cristales Despertar');
+  
   // Today's sales stats
   const [todaySalesCount, setTodaySalesCount] = useState(0);
   const [todayRevenue, setTodayRevenue] = useState(0);
@@ -275,6 +279,8 @@ export default function POSPage() {
   // TODOs
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
+  const [newTodoImage, setNewTodoImage] = useState<string | null>(null);
+  const todoImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -420,6 +426,30 @@ export default function POSPage() {
     loadPaymentSettings();
   }, []);
 
+  // Load business name from settings
+  const [businessNameSize, setBusinessNameSize] = useState('normal');
+  const loadBusinessName = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'business').single();
+      if (data?.setting_value?.business_name) {
+        setBusinessName(data.setting_value.business_name);
+        localStorage.setItem('crystalpos_business_name', data.setting_value.business_name);
+      }
+      if (data?.setting_value?.business_name_size) {
+        setBusinessNameSize(data.setting_value.business_name_size);
+        localStorage.setItem('crystalpos_business_name_size', data.setting_value.business_name_size);
+      }
+    } catch (e) { console.log('Using default business name'); }
+  }, []);
+
+  // Load from localStorage on mount (for offline)
+  useEffect(() => {
+    const stored = localStorage.getItem('crystalpos_business_name');
+    const storedSize = localStorage.getItem('crystalpos_business_name_size');
+    if (stored) setBusinessName(stored);
+    if (storedSize) setBusinessNameSize(storedSize);
+  }, []);
+
   // Load todos
   useEffect(() => {
     const loadTodos = async () => {
@@ -542,16 +572,20 @@ const getDisplayPrice = (item: Item) => {
 const isFixedPrice = (item: Item) => {
   return (item as any).pricing_type === 'fixed';
 };
-  const sortedItems = [...items].sort((a, b) => getDisplayPrice(b) - getDisplayPrice(a));
+const sortedItems = [...items].sort((a, b) => getDisplayPrice(b) - getDisplayPrice(a));
 
-  const handleGallerySwipe = (direction: 'prev' | 'next') => {
-    resetIdleTimer();
-    if (direction === 'next') {
-      setGalleryIndex((galleryIndex + 1) % sortedItems.length);
-    } else {
-      setGalleryIndex((galleryIndex - 1 + sortedItems.length) % sortedItems.length);
-    }
-  };
+const handleGallerySwipe = (direction: 'prev' | 'next') => {
+  if (!items.length || sortedItems.length < 2) return;
+  if (galleryNavigatingRef.current) return;
+  galleryNavigatingRef.current = true;
+  resetIdleTimer();
+  if (direction === 'next') {
+    setGalleryIndex((galleryIndex + 1) % sortedItems.length);
+  } else {
+    setGalleryIndex((galleryIndex - 1 + sortedItems.length) % sortedItems.length);
+  }
+  setTimeout(() => { galleryNavigatingRef.current = false; }, 700);
+};
 
   const handleGalleryTap = (item: Item) => {
     resetIdleTimer();
@@ -744,7 +778,7 @@ const isFixedPrice = (item: Item) => {
         alert('Cannot add items while offline.');
       }
       setShowAddItem(false);
-      setNewItem({ name: '', sku: '', price_crc: 0, suggested_price_crc: 0, cost_per_gram: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', description: '', image_url: '' });
+      setNewItem({ name: '', sku: '', price_crc: 0, cost_per_gram: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', description: '', image_url: '' });
     } catch (err) {
       console.error('Save item error:', err);
       alert('Failed to save item');
@@ -853,7 +887,7 @@ const isFixedPrice = (item: Item) => {
       <Box className="crystal-bg" sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <AppBar position="static" sx={{ bgcolor: COLORS.primary }}>
         <Toolbar>
-          <Typography variant="h6" sx={{ flex: 1, fontFamily: "'Brush Script MT', 'Brush Script Std', 'Lucida Calligraphy', 'Lucida Handwriting', cursive", fontSize: '1.8rem', fontWeight: 'bold', color: '#D4AF37', textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>Crystales Tati</Typography>
+          <Typography variant="h6" sx={{ flex: 1, fontFamily: "'Brush Script MT', 'Brush Script Std', 'Lucida Calligraphy', 'Lucida Handwriting', cursive", fontSize: businessNameSize === 'small' ? 'max(0.8rem, 2.5vw)' : 'max(1.5rem, 4vw)', fontWeight: 'bold', color: '#D4AF37', textShadow: '1px 1px 2px rgba(0,0,0,0.3)', wordBreak: 'break-word' }}>{businessName}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {offlineMode ? (
               <Chip label="OFFLINE" color="error" size="small" onClick={() => setOfflineMode(false)} clickable sx={{ cursor: 'pointer' }} />
@@ -884,6 +918,13 @@ variant="outlined"
                   if (data?.setting_value) {
                     setPaymentSettings(data.setting_value);
                   }
+                  
+                  // Reload business name
+                  await loadBusinessName();
+                  
+                  // Reload todos
+                  const { data: todosData } = await supabase.from('todos').select('*').order('created_at', { ascending: false });
+                  if (todosData) setTodos(todosData as Todo[]);
                   
                   alert('Sincronizado / Synced!');
                 } catch (e) { alert('Error de sincronización / Sync error'); }
@@ -1012,7 +1053,7 @@ variant="outlined"
               {sortedItems.slice(0, 10).map((_, idx) => (
                 <Box 
                   key={idx}
-                  onClick={() => { resetIdleTimer(); setGalleryIndex(idx); }}
+                  onClick={() => { if (!galleryNavigatingRef.current) { galleryNavigatingRef.current = true; resetIdleTimer(); setGalleryIndex(idx); setTimeout(() => { galleryNavigatingRef.current = false; }, 700); } }}
                   sx={{ 
                     width: idx === galleryIndex ? 24 : 10, 
                     height: 10, 
@@ -1255,10 +1296,10 @@ variant="outlined"
         {currentView === 'todo' && (
           <Box sx={{ color: COLORS.darkText }}>
             <Typography variant="h6" sx={{ mb: 2, color: COLORS.primary, fontWeight: 'bold' }}>
-              Notas / TODOs ({todos.filter(t => t.status === 'pending').length} pendientes)
+              Notas / TODOs ({todos.filter(t => (t.folder || 'Pending') === 'Pending').length} pendientes)
             </Typography>
             
-            {/* Add new TODO */}
+            {/* Add new TODO with photo */}
             <Box sx={{ mb: 2, p: 2, bgcolor: 'white', borderRadius: 1 }}>
               <TextField
                 fullWidth
@@ -1268,6 +1309,24 @@ variant="outlined"
                 onChange={(e) => setNewTodoText(e.target.value)}
                 sx={{ mb: 1 }}
               />
+              <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+                <Button size="small" variant="outlined" startIcon={<CameraAlt />} onClick={() => todoImageInputRef.current?.click()}>
+                  📷 Photo
+                </Button>
+                <input type="file" accept="image/*" capture="environment" ref={todoImageInputRef} hidden onChange={(e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => setNewTodoImage(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                }} />
+                {newTodoImage && (
+                  <Box sx={{ width: 50, height: 50, borderRadius: 1, overflow: 'hidden' }}>
+                    <img src={newTodoImage} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </Box>
+                )}
+              </Box>
               <Button 
                 variant="contained" 
                 fullWidth 
@@ -1277,9 +1336,12 @@ variant="outlined"
                   await supabase.from('todos').insert({
                     request_text: newTodoText,
                     created_by: 'tati',
-                    status: 'pending'
+                    status: 'pending',
+                    folder: 'Pending',
+                    image_url: newTodoImage
                   });
                   setNewTodoText('');
+                  setNewTodoImage(null);
                   const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false });
                   if (data) setTodos(data as Todo[]);
                 }}
@@ -1290,13 +1352,20 @@ variant="outlined"
             
             {/* TODO list */}
             <List>
-              {todos.filter(t => t.status === 'pending').map(todo => (
+              {todos.filter(t => (t.folder || 'Pending') === 'Pending').map(todo => (
                 <ListItem key={todo.id} sx={{ bgcolor: 'white', borderRadius: 1, mb: 1, flexDirection: 'column', alignItems: 'stretch' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
-                    <Typography sx={{ flex: 1 }}>{todo.request_text}</Typography>
-                    <Typography variant="caption" sx={{ color: COLORS.lightText }}>
-                      {todo.created_by === 'admin' ? '📋 Admin' : '📝 Tati'} • {new Date(todo.created_at).toLocaleDateString()}
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1, gap: 1 }}>
+                    {todo.image_url && (
+                      <Box sx={{ width: 50, height: 50, borderRadius: 1, overflow: 'hidden', flexShrink: 0 }}>
+                        <img src={todo.image_url} alt="Note" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </Box>
+                    )}
+                    <Box sx={{ flex: 1 }}>
+                      <Typography sx={{ flex: 1 }}>{todo.request_text}</Typography>
+                      <Typography variant="caption" sx={{ color: COLORS.lightText }}>
+                        {todo.created_by === 'admin' ? '📋 Admin' : '📝 Tati'} • {new Date(todo.created_at).toLocaleDateString()}
+                      </Typography>
+                    </Box>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button 
@@ -1304,7 +1373,7 @@ variant="outlined"
                       variant="contained" 
                       color="success"
                       onClick={async () => {
-                        await supabase.from('todos').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', todo.id);
+                        await supabase.from('todos').update({ status: 'done', folder: 'Done', completed_at: new Date().toISOString() }).eq('id', todo.id);
                         const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false });
                         if (data) setTodos(data as Todo[]);
                       }}
@@ -1326,7 +1395,7 @@ variant="outlined"
                   </Box>
                 </ListItem>
               ))}
-              {todos.filter(t => t.status === 'pending').length === 0 && (
+              {todos.filter(t => (t.folder || 'Pending') === 'Pending').length === 0 && (
                 <Typography sx={{ color: COLORS.lightText, textAlign: 'center', py: 4 }}>
                   No hay notas pendientes / No pending notes
                 </Typography>
@@ -1385,14 +1454,14 @@ variant="outlined"
         {currentView === 'add' && (
           <Box>
             <Typography variant="h6" sx={{ mb: 2, color: COLORS.darkText }}>Gestionar Inventario / Manage Inventory</Typography>
-            <Button variant="contained" startIcon={<Add />} onClick={() => setShowAddItem(true)} sx={{ mr: 1, bgcolor: COLORS.primary }}>Agregar Item / Add Item</Button>
+            <Button variant="contained" startIcon={<Add />} onClick={() => setShowAddItem(true)} sx={{ mr: 1, py: 1.5, bgcolor: COLORS.primary, fontSize: '1rem' }}>Agregar Item / Add Item</Button>
             <Button variant="outlined" startIcon={<Add />} onClick={() => setShowAddCategory(true)}>Agregar Categoría / Add Category</Button>
           </Box>
         )}
 
         {currentView === 'dashboard' && (
           <Box sx={{ textAlign: 'center', py: 2, color: '#1a1a1a' }}>
-            <Typography variant="h5" sx={{ mb: 1, fontWeight: 'bold', color: '#1a1a1a' }}>💎 Crystales Tati</Typography>
+            <Typography variant="h5" sx={{ mb: 1, fontWeight: 'bold', color: '#1a1a1a' }}>💎 {businessName}</Typography>
             <Divider sx={{ my: 2 }} />
             
             {/* Today's Sales Report */}
@@ -1450,7 +1519,7 @@ variant="outlined"
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button variant="outlined" color="error" size="small" startIcon={<Delete />} onClick={() => setCart([])}>Limpiar / Clear</Button>
-            <Button variant="contained" color="success" size="small" startIcon={<Payment />} fullWidth onClick={() => setShowCheckout(true)}>Pagar / Checkout</Button>
+            <Button variant="contained" color="success" size="large" startIcon={<Payment />} fullWidth onClick={() => setShowCheckout(true)} sx={{ py: 2, fontSize: '1.1rem' }}>Pagar / Checkout</Button>
           </Box>
         </Paper>
       )}
@@ -1485,16 +1554,20 @@ variant="outlined"
             </Box>
           ) : (
             <>
-              <Tooltip title="Ingresa el peso en gramos">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Typography sx={{ color: COLORS.lightText }}>Peso (g):</Typography>
+                <IconButton onClick={() => setDetailWeight(Math.max(0, detailWeight - 10))} size="small" sx={{ bgcolor: 'grey.200' }}><Remove /></IconButton>
                 <TextField
                   fullWidth
                   label="Peso (gramos)"
                   type="number"
                   value={detailWeight}
                   onChange={(e) => setDetailWeight(Number(e.target.value))}
-                  sx={{ mb: 2, bgcolor: 'white' }}
+                  sx={{ flex: 1, bgcolor: 'white' }}
+                  inputProps={{ style: { textAlign: 'center', fontSize: '1.2rem' } }}
                 />
-              </Tooltip>
+                <IconButton onClick={() => setDetailWeight(detailWeight + 10)} size="small" sx={{ bgcolor: 'grey.200' }}><Add /></IconButton>
+              </Box>
 
               <Typography variant="h6" sx={{ color: COLORS.darkText, mb: 1, textAlign: 'center' }}>
                 Precio automático: {formatCurrency(Number(detailItem?.price_crc || 0) * detailWeight)}
@@ -1502,7 +1575,9 @@ variant="outlined"
             </>
           )}
 
-          <Tooltip title="Deja vacío para precio automático, o ingresa precio final">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Typography sx={{ color: COLORS.lightText }}>O precio:</Typography>
+            <IconButton onClick={() => setDetailFinalPrice(Math.max(0, (detailFinalPrice || 0) - 1000))} size="small" sx={{ bgcolor: 'grey.200' }}><Remove /></IconButton>
             <TextField
               fullWidth
               label="O precio final (override)"
@@ -1510,9 +1585,11 @@ variant="outlined"
               value={detailFinalPrice !== null ? detailFinalPrice : ''}
               placeholder="Precio manual"
               onChange={(e) => setDetailFinalPrice(e.target.value ? Number(e.target.value) : null)}
-              sx={{ mb: 2, bgcolor: 'white' }}
+              sx={{ flex: 1, bgcolor: 'white' }}
+              inputProps={{ style: { textAlign: 'center' } }}
             />
-          </Tooltip>
+            <IconButton onClick={() => setDetailFinalPrice((detailFinalPrice || 0) + 1000)} size="small" sx={{ bgcolor: 'grey.200' }}><Add /></IconButton>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
           <Button onClick={() => setShowDetailModal(false)} variant="outlined">Cancelar</Button>
@@ -1543,16 +1620,20 @@ variant="outlined"
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Typography sx={{ color: COLORS.lightText }}>Descuento / Discount (%):</Typography>
+              <IconButton onClick={() => setDiscountPercent(Math.max(0, discountPercent - 5))} size="small" sx={{ bgcolor: 'grey.200' }}><Remove /></IconButton>
               <TextField 
                 type="number" 
                 size="small" 
                 value={discountPercent} 
                 onChange={(e) => { setDiscountPercent(Number(e.target.value)); setDiscountOverride(null); }}
                 sx={{ width: 60, bgcolor: 'white' }}
+                inputProps={{ style: { textAlign: 'center' } }}
               />
+              <IconButton onClick={() => setDiscountPercent(Math.min(100, discountPercent + 5))} size="small" sx={{ bgcolor: 'grey.200' }}><Add /></IconButton>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ color: COLORS.lightText }}>O precio final / Or final price:</Typography>
+              <Typography sx={{ color: COLORS.lightText }}>O precio final:</Typography>
+              <IconButton onClick={() => setDiscountOverride(Math.max(0, (discountOverride || rawTotal) - 1000))} size="small" sx={{ bgcolor: 'grey.200' }}><Remove /></IconButton>
               <TextField 
                 type="number" 
                 size="small" 
@@ -1560,7 +1641,9 @@ variant="outlined"
                 placeholder={formatCurrency(rawTotal)}
                 onChange={(e) => setDiscountOverride(e.target.value ? Number(e.target.value) : null)}
                 sx={{ width: 100, bgcolor: 'white' }}
+                inputProps={{ style: { textAlign: 'center' } }}
               />
+              <IconButton onClick={() => setDiscountOverride((discountOverride || rawTotal) + 1000)} size="small" sx={{ bgcolor: 'grey.200' }}><Add /></IconButton>
             </Box>
             <Divider sx={{ my: 2 }} />
             <Typography variant="h6" sx={{ mb: 2, color: COLORS.darkText, fontWeight: 'bold' }}>Total: {formatCurrency(finalTotal)}</Typography>
@@ -1660,7 +1743,7 @@ variant="outlined"
               )}
             </Box>
             
-            <Button variant="contained" color="success" fullWidth size="large" disabled={!paymentMethod || processing} onClick={handleCheckout} sx={{ bgcolor: COLORS.success, mt: 2 }}>
+            <Button variant="contained" color="success" fullWidth size="large" disabled={!paymentMethod || processing} onClick={handleCheckout} sx={{ bgcolor: COLORS.success, mt: 2, py: 2.5, fontSize: '1.2rem' }}>
               {processing ? 'Procesando / Processing...' : 'Completar Venta / Complete Sale'}
             </Button>
             {!isOnline && <Typography variant="caption" sx={{ color: COLORS.lightText, display: 'block', mt: 1 }}>Sin Conexión - Se sincronizará cuando esté en línea / Offline - Will sync when online</Typography>}
@@ -1680,8 +1763,7 @@ variant="outlined"
           <TextField fullWidth label="Nombre del Item / Item Name *" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} sx={{ mb: 2, bgcolor: 'white' }} />
           <TextField fullWidth label="SKU (o deja vacío/leave empty)" value={newItem.sku} onChange={(e) => setNewItem({ ...newItem, sku: e.target.value })} sx={{ mb: 2, bgcolor: 'white' }} placeholder="Opcional / Optional" />
           <TextField fullWidth label="Costo por gramo / Cost per gram (CRC)" type="number" value={newItem.cost_per_gram} onChange={(e) => setNewItem({ ...newItem, cost_per_gram: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
-          <TextField fullWidth label="Precio Sugerido por g / Suggested Price/g (CRC)" type="number" value={newItem.suggested_price_crc} onChange={(e) => setNewItem({ ...newItem, suggested_price_crc: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
-          <TextField fullWidth label="Precio Venta por g / Price (CRC)/g *" type="number" value={newItem.price_crc} onChange={(e) => setNewItem({ ...newItem, price_crc: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
+          <TextField fullWidth label="Precio Venta por g / Price per gram (CRC)" type="number" value={newItem.price_crc} onChange={(e) => setNewItem({ ...newItem, price_crc: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
           <TextField fullWidth label="Stock actual (gramos) / Stock (grams)" type="number" value={newItem.current_weight_grams} onChange={(e) => setNewItem({ ...newItem, current_weight_grams: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
           <TextField fullWidth label="Mín stock alerta / Min stock threshold (g)" type="number" value={newItem.min_threshold_grams} onChange={(e) => setNewItem({ ...newItem, min_threshold_grams: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
           <FormControl fullWidth sx={{ mb: 2, bgcolor: 'white' }}>
@@ -1897,7 +1979,7 @@ variant="outlined"
         <BottomNavigationAction value="sales" label="Ventas" icon={<Home />} />
         <BottomNavigationAction value="gallery" label="Galería" icon={<Image />} />
         <BottomNavigationAction value="cart" label="Carrito" icon={<Badge badgeContent={cart.length} color="secondary"><ShoppingCart /></Badge>} />
-        <BottomNavigationAction value="todo" label="Notas" icon={<Badge badgeContent={todos.filter(t => t.status === 'pending').length} color="warning"><InventoryIcon /></Badge>} />
+        <BottomNavigationAction value="todo" label="Notas" icon={<Badge badgeContent={todos.filter(t => (t.folder || 'Pending') === 'Pending').length} color="warning"><InventoryIcon /></Badge>} />
         <BottomNavigationAction value="inventory" label="Inventario" icon={<InventoryIcon />} />
         <BottomNavigationAction value="add" label="Agregar" icon={<Add />} />
         <BottomNavigationAction value="dashboard" label="Ajustes" icon={<DashboardIcon />} />

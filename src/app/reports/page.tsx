@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/utils/format';
 import DashboardLayout from '@/components/DashboardLayout';
 
-const COLORS = { primary: '#6B4C9A', success: '#228B22', error: '#DC3545', warning: '#FF9800', secondary: '#D4AF37' };
+const COLORS = { primary: '#6B4C9A', success: '#228B22', error: '#DC3545', warning: '#FF9800', secondary: '#D4AF37', accent: '#9C27B0' };
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -42,6 +42,7 @@ export default function ReportsPage() {
   // Inventory data
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [subcategories, setSubcategories] = useState<any[]>([]);
   
   // Top & Bottom items
   const [topItems, setTopItems] = useState<any[]>([]);
@@ -50,6 +51,17 @@ export default function ReportsPage() {
   
   // Low stock
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  
+  // Category breakdown
+  const [salesByCategory, setSalesByCategory] = useState<any[]>([]);
+  const [salesBySubcategory, setSalesBySubcategory] = useState<any[]>([]);
+  
+  // Detailed Top Sellers breakdown
+  const [uniqueItemsSold, setUniqueItemsSold] = useState<any[]>([]);
+  const [categorySalesDetailed, setCategorySalesDetailed] = useState<any[]>([]);
+  const [subcategorySalesDetailed, setSubcategorySalesDetailed] = useState<any[]>([]);
+  const [itemsByCategory, setItemsByCategory] = useState<Record<string, { qty: number; revenue: number }>>({});
+  const [itemsBySubcategory, setItemsBySubcategory] = useState<Record<string, { qty: number; revenue: number }>>({});
 
   useEffect(() => { fetchAllData(); }, [dateFrom, dateTo]);
 
@@ -67,12 +79,14 @@ export default function ReportsPage() {
       // Fetch inventory items
       const { data: itemsData } = await supabase.from('items').select('*').eq('is_active', true).order('name');
       const { data: catsData } = await supabase.from('categories').select('*').eq('is_active', true).order('display_order');
+      const { data: subsData } = await supabase.from('subcategories').select('*').eq('is_active', true).order('name');
       
       if (salesData) setSales(salesData);
       if (itemsData) setItems(itemsData);
       if (catsData) setCategories(catsData);
+      if (subsData) setSubcategories(subsData);
 
-      // Calculate sales summary
+// Calculate sales summary
       if (salesData && salesData.length > 0) {
         const totalRevenue = salesData.reduce((sum, s) => sum + (s.total_crc || 0), 0);
         const count = salesData.length;
@@ -81,9 +95,8 @@ export default function ReportsPage() {
         const payments: Record<string, number> = { cash: 0, sinpe: 0, card: 0, lightning: 0 };
         const byHour: Record<number, number> = {};
         
-        // Calculate sales summary
-      // Create items map for cost lookup
-      const itemsMap: Record<string, any> = {};
+        // Create items map for cost lookup
+        const itemsMap: Record<string, any> = {};
       (itemsData || []).forEach(item => { itemsMap[item.id] = item; });
       
       let totalCOGS = 0;
@@ -133,6 +146,70 @@ export default function ReportsPage() {
           .slice(0, 15);
         setTopItems(top);
 
+        // Sales by category
+        const byCat: Record<string, { qty: number; revenue: number }> = {};
+        const bySub: Record<string, { qty: number; revenue: number }> = {};
+        const catMap: Record<string, any> = {};
+        (catsData || []).forEach(c => { catMap[c.id] = c.name; });
+        const subMap: Record<string, any> = {};
+        (subsData || []).forEach(s => { subMap[s.id] = s.name; });
+        
+        Object.values(itemSalesMap).forEach((item: any) => {
+          const itemInfo = itemsMap[item.item_id];
+          if (itemInfo?.category_id) {
+            const catName = catMap[itemInfo.category_id] || 'Unknown';
+            if (!byCat[catName]) byCat[catName] = { qty: 0, revenue: 0 };
+            byCat[catName].qty += item.qty;
+            byCat[catName].revenue += item.revenue;
+          }
+          if (itemInfo?.subcategory_id) {
+            const subName = subMap[itemInfo.subcategory_id] || 'Unknown';
+            if (!bySub[subName]) bySub[subName] = { qty: 0, revenue: 0 };
+            bySub[subName].qty += item.qty;
+            bySub[subName].revenue += item.revenue;
+          }
+        });
+        
+        setSalesByCategory(Object.entries(byCat).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.revenue - a.revenue));
+        setSalesBySubcategory(Object.entries(bySub).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.revenue - a.revenue));
+
+        // DETAILED BREAKDOWN: Unique items, Category, Subcategory
+        const uniqueSold: any[] = [];
+        const catSales: Record<string, any> = {};
+        const subSales: Record<string, any> = {};
+        
+        Object.values(itemSalesMap).forEach((item: any) => {
+          const itemInfo = itemsMap[item.item_id];
+          const pricingType = itemInfo?.pricing_type || 'per_gram';
+          
+          // UNIQUE items (fixed price = one-of-a-kind)
+          if (pricingType === 'fixed') {
+            uniqueSold.push({ name: item.name, qty: item.qty, revenue: item.revenue, cost: item.cost });
+          }
+          
+          // By Category
+          if (itemInfo?.category_id) {
+            const catName = catMap[itemInfo.category_id] || 'Unknown';
+            if (!catSales[catName]) catSales[catName] = { qty: 0, revenue: 0, count: 0 };
+            catSales[catName].qty += item.qty;
+            catSales[catName].revenue += item.revenue;
+            catSales[catName].count += 1;
+          }
+          
+          // By Subcategory
+          if (itemInfo?.subcategory_id) {
+            const subName = subMap[itemInfo.subcategory_id] || 'Unknown';
+            if (!subSales[subName]) subSales[subName] = { qty: 0, revenue: 0, count: 0, category: catMap[itemInfo.category_id] || 'Unknown' };
+            subSales[subName].qty += item.qty;
+            subSales[subName].revenue += item.revenue;
+            subSales[subName].count += 1;
+          }
+        });
+        
+        setUniqueItemsSold(uniqueSold.sort((a, b) => b.revenue - a.revenue));
+        setCategorySalesDetailed(Object.entries(catSales).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.revenue - a.revenue));
+        setSubcategorySalesDetailed(Object.entries(subSales).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.revenue - a.revenue));
+
         // Top margin items
         const marginItems = Object.entries(itemSalesMap)
           .map(([id, data]) => ({ 
@@ -164,15 +241,18 @@ export default function ReportsPage() {
         setTopMargin([]);
       }
 
-      // Low stock items
-      if (itemsData) {
-        const low = itemsData.filter(i => (i.depletion_rate_grams_per_day || 0) > 0 && (i.current_weight_grams || 0) > 0).map(item => {
-          const days = Math.round((item.current_weight_grams || 0) / (i.depletion_rate_grams_per_day || 1));
+      // Low stock items - use same logic as inventory (below min threshold)
+      if (itemsData && Array.isArray(itemsData)) {
+        const low = itemsData.filter(i => 
+          i && i.is_active && (i.current_weight_grams || 0) > 0 && (i.current_weight_grams || 0) < (i.min_threshold_grams || 100)
+        ).map(item => {
+          const days = Math.round((item.current_weight_grams || 0) / (item.depletion_rate_grams_per_day || 1));
           return { ...item, daysUntilEmpty: days };
-        }).filter(i => i.daysUntilEmpty <= 60)
-          .sort((a, b) => a.daysUntilEmpty - b.daysUntilEmpty)
+        }).sort((a, b) => (a.current_weight_grams || 0) - (b.current_weight_grams || 0))
           .slice(0, 15);
         setLowStockItems(low);
+      } else {
+        setLowStockItems([]);
       }
 
       // Inventory calculations
@@ -238,6 +318,15 @@ export default function ReportsPage() {
             <TextField type="date" label="Desde / From" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 140 }} size="small" />
             <TextField type="date" label="Hasta / To" value={dateTo} onChange={(e) => setDateTo(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 140 }} size="small" />
             <Button variant="contained" onClick={fetchAllData} sx={{ bgcolor: COLORS.primary }}>Actualizar / Update</Button>
+            <Button variant="outlined" startIcon={<Download />} onClick={() => {
+              const allCsv = `=== SALES ===\nDate,Items,Total,Payment,Device\n` + 
+                sales.map(s => `${s.sale_date},${s.items_sold?.length||0},${s.total_crc},${s.payment_method},${s.device_id||''}`).join('\n') +
+                `\n=== SUMMARY ===\nTotal Revenue,${salesSummary.revenue}\nTransactions,${salesSummary.count}\nAvg Sale,${salesSummary.avgSale}\n` +
+                `\n=== BY CATEGORY ===\nCategory,Revenue\n` +
+                salesByCategory.map(c => `${c.name},${c.revenue}`).join('\n');
+              const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([allCsv], { type: 'text/csv' })); 
+              a.download = `all_reports_${dateFrom}_${dateTo}.csv`; a.click();
+            }}>Export All</Button>
           </Box>
         </Paper>
 
@@ -248,6 +337,7 @@ export default function ReportsPage() {
           <Tab label="Top Vendidos / Top Sellers" />
           <Tab label="Movimiento Lento / Slow Movers" />
           <Tab label="Stock Bajo / Low Stock" />
+          <Tab label="Por Categoría / By Category" />
         </Tabs>
 
         {loading && <Typography sx={{ p: 3 }}>Cargando / Loading...</Typography>}
@@ -366,33 +456,93 @@ export default function ReportsPage() {
           </TableContainer>
         </TabPanel>
 
-        {/* TOP SELLERS TAB */}
+        {/* TOP SELLERS TAB - Detailed Breakdown */}
         <TabPanel value={tab} index={3}>
-          <TableContainer>
+          {/* UNIQUE ITEMS - High Value One-of-a-kind */}
+          {uniqueItemsSold.length > 0 && (
+            <>
+              <Typography variant="h5" sx={{ mb: 2, color: COLORS.secondary, fontWeight: 'bold' }}>💎 UNIQUE / ÚNICOS (High Value)</Typography>
+              <TableContainer component={Paper} sx={{ mb: 4 }}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: COLORS.secondary }}>
+                    <TableRow>
+                      <TableCell sx={{ color: 'white' }}>#</TableCell>
+                      <TableCell sx={{ color: 'white' }}>Item</TableCell>
+                      <TableCell sx={{ color: 'white' }} align="right">Qty</TableCell>
+                      <TableCell sx={{ color: 'white' }} align="right">Revenue</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {uniqueItemsSold.map((item, idx) => (
+                      <TableRow key={idx} sx={{ bgcolor: idx === 0 ? `${COLORS.secondary}15` : 'inherit' }}>
+                        <TableCell sx={{ fontWeight: 'bold' }}>{idx + 1}</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>{item.name}</TableCell>
+                        <TableCell align="right">{item.qty}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', color: COLORS.success }}>{formatCurrency(item.revenue)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
+          
+          {/* BY CATEGORY */}
+          <Typography variant="h5" sx={{ mb: 2, color: COLORS.primary, fontWeight: 'bold' }}>📦 BY CATEGORY / POR CATEGORÍA</Typography>
+          <TableContainer component={Paper} sx={{ mb: 4 }}>
             <Table size="small">
-              <TableHead>
+              <TableHead sx={{ bgcolor: COLORS.primary }}>
                 <TableRow>
-                  <TableCell>#</TableCell>
-                  <TableCell>Artículo / Item</TableCell>
-                  <TableCell align="right">Cantidad (g)</TableCell>
-                  <TableCell align="right">Ingresos / Revenue</TableCell>
-                  <TableCell align="right">Margen / Margin</TableCell>
+                  <TableCell sx={{ color: 'white' }}>#</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Category</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Items Sold</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Total Revenue</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">% of Total</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {topItems.map((item, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell sx={{ fontWeight: 'bold', color: idx < 3 ? COLORS.secondary : 'inherit' }}>{idx + 1}</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>{item.name}</TableCell>
-                    <TableCell align="right">{item.qty.toLocaleString()}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(item.revenue)}</TableCell>
-                    <TableCell align="right" sx={{ color: COLORS.success }}>{formatCurrency(item.revenue - item.cost)}</TableCell>
+                {categorySalesDetailed.map((cat, idx) => (
+                  <TableRow key={idx} sx={{ bgcolor: idx < 3 ? `${COLORS.primary}10` : 'inherit' }}>
+                    <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit' }}>{idx + 1}</TableCell>
+                    <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit' }}>{cat.name}</TableCell>
+                    <TableCell align="right">{cat.count} types</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(cat.revenue)}</TableCell>
+                    <TableCell align="right">{salesSummary.revenue > 0 ? ((cat.revenue / salesSummary.revenue) * 100).toFixed(1) : 0}%</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+          
+          {/* BY SUB-CATEGORY */}
+          <Typography variant="h5" sx={{ mb: 2, color: COLORS.accent, fontWeight: 'bold' }}>💠 BY SUB-CATEGORY / POR SUBCATEGORÍA</Typography>
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead sx={{ bgcolor: COLORS.accent }}>
+                <TableRow>
+                  <TableCell sx={{ color: 'white' }}>#</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Sub-Category</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Category</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Items</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Revenue</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {subcategorySalesDetailed.map((sub, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>{idx + 1}</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>{sub.name}</TableCell>
+                    <TableCell>{sub.category}</TableCell>
+                    <TableCell align="right">{sub.count}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(sub.revenue)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </TabPanel>
 
+          {/* HIGHEST MARGIN - kept for reference */}
           <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>Mayor Ganancia / Highest Margin</Typography>
           <TableContainer>
             <Table size="small">
@@ -418,7 +568,6 @@ export default function ReportsPage() {
               </TableBody>
             </Table>
           </TableContainer>
-        </TabPanel>
 
         {/* SLOW MOVERS TAB */}
         <TabPanel value={tab} index={4}>
@@ -474,6 +623,76 @@ export default function ReportsPage() {
               </TableBody>
             </Table>
           </TableContainer>
+        </TabPanel>
+
+        {/* BY CATEGORY TAB */}
+        <TabPanel value={tab} index={6}>
+          <Typography variant="h5" sx={{ mb: 2 }}>Ventas por Categoría / Sales by Category</Typography>
+          
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {salesByCategory.map((cat, idx) => (
+              <Grid key={idx} size={{ xs: 12, sm: 6, md: 4 }}>
+                <Card sx={{ bgcolor: idx === 0 ? COLORS.primary : idx === 1 ? COLORS.secondary : 'white', color: idx < 2 ? 'white' : 'inherit' }}>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight="bold">{cat.name}</Typography>
+                    <Typography variant="h4" fontWeight="bold">{formatCurrency(cat.revenue)}</Typography>
+                    <Typography variant="body2">{cat.qty.toLocaleString()}g vendido</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          
+          {salesByCategory.length > 0 && (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead sx={{ bgcolor: COLORS.primary }}>
+                  <TableRow>
+                    <TableCell sx={{ color: 'white' }}>Categoría</TableCell>
+                    <TableCell sx={{ color: 'white' }} align="right">Cantidad</TableCell>
+                    <TableCell sx={{ color: 'white' }} align="right">Ingresos</TableCell>
+                    <TableCell sx={{ color: 'white' }} align="right">%</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {salesByCategory.map((cat, idx) => (
+                    <TableRow key={idx} sx={{ bgcolor: idx < 3 ? `${COLORS.secondary}10` : 'inherit' }}>
+                      <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit' }}>{cat.name}</TableCell>
+                      <TableCell align="right">{cat.qty.toLocaleString()}g</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(cat.revenue)}</TableCell>
+                      <TableCell align="right">{salesSummary.revenue > 0 ? ((cat.revenue / salesSummary.revenue) * 100).toFixed(1) : 0}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+          
+          {salesBySubcategory.length > 0 && (
+            <>
+              <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>Ventas por Subcategoría / Sales by Subcategory</Typography>
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: COLORS.primary }}>
+                    <TableRow>
+                      <TableCell sx={{ color: 'white' }}>Subcategoría</TableCell>
+                      <TableCell sx={{ color: 'white' }} align="right">Cantidad</TableCell>
+                      <TableCell sx={{ color: 'white' }} align="right">Ingresos</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {salesBySubcategory.map((sub, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{sub.name}</TableCell>
+                        <TableCell align="right">{sub.qty.toLocaleString()}g</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(sub.revenue)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
         </TabPanel>
       </Box>
     </DashboardLayout>

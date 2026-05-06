@@ -47,10 +47,10 @@ export default function InventoryPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [form, setForm] = useState({ 
-    name: '', sku: '', cost_per_gram: 0, suggested_price_crc: 0, price_crc: 0, 
+    name: '', name_es: '', sku: '', cost_per_gram: 0, price_crc: 0, 
     pricing_type: 'per_gram' as 'per_gram' | 'fixed', fixed_price_crc: 0,
     current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '',
-    image_url: '', description: '' 
+    image_url: '', description: '', description_es: '' 
   });
 
   const [categoryForm, setCategoryForm] = useState({ name: '', name_es: '', description: '', description_es: '' });
@@ -70,8 +70,12 @@ export default function InventoryPage() {
   const handleCellSave = async (itemId: string, field: string) => {
     try {
       let value: any = cellValue;
-      if (['price_crc', 'cost_per_gram', 'suggested_price_crc', 'current_weight_grams', 'min_threshold_grams'].includes(field)) {
+      if (['price_crc', 'cost_per_gram', 'current_weight_grams', 'min_threshold_grams'].includes(field)) {
         value = Number(cellValue) || 0;
+      }
+      // Convert empty string to null for UUID fields
+      if (['category_id', 'subcategory_id'].includes(field) && !value) {
+        value = null;
       }
       const { error } = await supabaseAdmin.from('items').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', itemId);
       if (error) throw error;
@@ -134,10 +138,20 @@ export default function InventoryPage() {
   const handleSave = async () => {
     try {
       const itemData = {
-        ...form,
-        price_crc: Number(form.price_crc),
-        current_weight_grams: Number(form.current_weight_grams),
-        min_threshold_grams: Number(form.min_threshold_grams),
+        name: form.name,
+        name_es: form.name_es || null,
+        sku: form.sku || null,
+        price_crc: Number(form.price_crc) || 0,
+        cost_per_gram: Number(form.cost_per_gram) || 0,
+        fixed_price_crc: Number(form.fixed_price_crc) || 0,
+        pricing_type: form.pricing_type || 'per_gram',
+        current_weight_grams: Number(form.current_weight_grams) || 0,
+        min_threshold_grams: Number(form.min_threshold_grams) || 100,
+        category_id: form.category_id || null,
+        subcategory_id: form.subcategory_id || null,
+        description: form.description || null,
+        description_es: form.description_es || null,
+        image_url: form.image_url || null,
       };
       
       if (editItem) {
@@ -149,7 +163,6 @@ export default function InventoryPage() {
           id: crypto.randomUUID(), 
           is_active: true, 
           depletion_rate_grams_per_day: 0,
-          cost_per_gram: 0,
           created_at: new Date().toISOString() 
         });
         if (error) throw error;
@@ -285,7 +298,7 @@ export default function InventoryPage() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
       <Drawer variant="permanent" sx={{ width: drawerOpen ? COLORS.drawerWidth : 72, '& .MuiDrawer-paper': { width: drawerOpen ? COLORS.drawerWidth : 72, bgcolor: COLORS.primary, color: 'white', transition: 'width 0.2s' } }}>
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'white' }}>
           {drawerOpen && <Typography variant="h6" sx={{ fontWeight: 'bold' }}>CrystalPOS</Typography>}
           <IconButton onClick={() => setDrawerOpen(!drawerOpen)} sx={{ color: 'white' }}><MenuIcon /></IconButton>
         </Box>
@@ -299,7 +312,7 @@ export default function InventoryPage() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>Export</Button>
             <Button variant="outlined" color="error" startIcon={<DeleteSweep />} onClick={handleDeleteAllContents}>Delete All Contents</Button>
-            <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', cost_per_gram: 0, suggested_price_crc: 0, price_crc: 0, pricing_type: 'per_gram', fixed_price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', image_url: '', description: '' }); setDialogOpen(true); }}>
+            <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', cost_per_gram: 0, price_crc: 0, pricing_type: 'per_gram', fixed_price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', image_url: '', description: '' }); setDialogOpen(true); }}>
               Add Item
             </Button>
           </Box>
@@ -420,7 +433,7 @@ export default function InventoryPage() {
                         </TableCell>
                         <TableCell><Chip label={getStockStatusLabel(item.current_weight_grams || 0, item.min_threshold_grams || 100)} size="small" color={status} /></TableCell>
                         <TableCell>
-                          <IconButton size="small" onClick={() => { setEditItem(item); setForm({ name: item.name, sku: item.sku, cost_per_gram: item.cost_per_gram || 0, suggested_price_crc: (item as any).suggested_price_crc || 0, price_crc: item.price_crc, pricing_type: (item as any).pricing_type || 'per_gram', fixed_price_crc: (item as any).fixed_price_crc || 0, current_weight_grams: item.current_weight_grams, min_threshold_grams: item.min_threshold_grams, category_id: item.category_id || '', subcategory_id: item.subcategory_id || '', image_url: item.image_url || '', description: item.description || '' }); setDialogOpen(true); }}>
+                          <IconButton size="small" onClick={() => { setEditItem(item); setForm({ name: item.name, name_es: (item as any).name_es || '', sku: item.sku, cost_per_gram: item.cost_per_gram || 0, price_crc: item.price_crc, pricing_type: (item as any).pricing_type || 'per_gram', fixed_price_crc: (item as any).fixed_price_crc || 0, current_weight_grams: item.current_weight_grams, min_threshold_grams: item.min_threshold_grams, category_id: item.category_id || '', subcategory_id: item.subcategory_id || '', image_url: item.image_url || '', description: item.description || '', description_es: (item as any).description_es || '' }); setDialogOpen(true); }}>
                             <Edit fontSize="small" />
                           </IconButton>
                           <IconButton size="small" color="error" onClick={() => handleDelete(item)}><Delete fontSize="small" /></IconButton>
@@ -445,6 +458,7 @@ export default function InventoryPage() {
                 <ListItem key={cat.id} secondaryAction={
                   <>
                     <IconButton onClick={() => openCategoryDialog(cat)}><Edit /></IconButton>
+                    <IconButton color="error" onClick={async () => { if (confirm('Delete this category?')) { await supabaseAdmin.from('categories').delete().eq('id', cat.id); fetchData(); }}}><Delete /></IconButton>
                   </>
                 }>
                   <ListItemText primary={cat.name} secondary={(cat as any).name_es ? `${cat.name} / ${(cat as any).name_es}` : `Order: ${cat.display_order}`} />
@@ -465,6 +479,7 @@ export default function InventoryPage() {
                 <ListItem key={sub.id} secondaryAction={
                   <>
                     <IconButton onClick={() => openSubcategoryDialog(sub)}><Edit /></IconButton>
+                    <IconButton color="error" onClick={async () => { if (confirm('Delete this subcategory?')) { await supabaseAdmin.from('subcategories').delete().eq('id', sub.id); fetchData(); }}}><Delete /></IconButton>
                   </>
                 }>
                   <ListItemText 
@@ -520,10 +535,7 @@ export default function InventoryPage() {
               <TextField fullWidth label="Cost per gram (CRC)" type="number" value={form.cost_per_gram} onChange={e => setForm({ ...form, cost_per_gram: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Suggested Price per gram (CRC)" type="number" value={form.suggested_price_crc} onChange={e => setForm({ ...form, suggested_price_crc: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Price (CRC)/g" type="number" value={form.price_crc} onChange={e => setForm({ ...form, price_crc: Number(e.target.value) })} required />
+              <TextField fullWidth label="Price per gram (CRC)" type="number" value={form.price_crc} onChange={e => setForm({ ...form, price_crc: Number(e.target.value) })} required />
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
@@ -548,8 +560,20 @@ export default function InventoryPage() {
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
-                <Select value={form.category_id} label="Category" onChange={e => setForm({ ...form, category_id: e.target.value })}>
+                <Select value={form.category_id || ''} label="Category" onChange={e => setForm({ ...form, category_id: e.target.value, subcategory_id: '' })}>
+                  <MenuItem value="">-- Select --</MenuItem>
                   {categories.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Subcategory</InputLabel>
+                <Select value={form.subcategory_id || ''} label="Subcategory" onChange={e => setForm({ ...form, subcategory_id: e.target.value })}>
+                  <MenuItem value="">-- None --</MenuItem>
+                  {subcategories.filter(s => !s.category_id || s.category_id === form.category_id).map(s => (
+                    <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>

@@ -1,7 +1,7 @@
 // =============================================================================
-// ADMIN PORTAL TYPES
-// Version: 1.0
-// Date: April 15, 2026
+// MARKETPOS TYPES
+// Version: 2.0
+// Date: May 2026
 // =============================================================================
 
 export interface User {
@@ -23,6 +23,7 @@ export interface Category {
   description_es: string | null;
   display_order: number;
   is_active: boolean;
+  subcategory_ids: string[]; // Array of subcategory IDs that apply to this category
   created_at: string;
   updated_at: string;
 }
@@ -51,7 +52,6 @@ export interface Item {
   description_es: string | null;
   pricing_type: 'per_gram' | 'fixed';
   price_crc: number;
-  suggested_price_crc: number;
   fixed_price_crc: number;
   current_weight_grams: number;
   min_threshold_grams: number;
@@ -63,6 +63,14 @@ export interface Item {
   updated_at: string;
   deleted_at: string | null;
   last_sold_at: string | null;
+}
+
+export interface CartItem {
+  item: Item;
+  quantity: number;
+  subtotal: number;
+  itemDiscount: number;
+  manualPrice: number | null;
 }
 
 export interface Sale {
@@ -81,6 +89,7 @@ export interface Sale {
   receipt_email: string | null;
   customer_phone: string | null;
   customer_name: string | null;
+  device_id: string | null;
   created_by_user_id: string | null;
   created_at: string;
   synced_at: string | null;
@@ -109,6 +118,8 @@ export interface Todo {
   customer_phone: string | null;
   created_by: string;
   status: string;
+  folder: string;
+  image_url: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -125,4 +136,29 @@ export interface Customer {
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AppSettings {
+  setting_key: string;
+  setting_value: {
+    business_name?: string;
+    business_name_size?: string;
+    business_tagline?: string;
+    business_email?: string;
+    business_phone?: string;
+    address?: string;
+    cash_enabled?: boolean;
+    sinpe_enabled?: boolean;
+    card_enabled?: boolean;
+    lightning_enabled?: boolean;
+  };
+  updated_at: string;
+}
+
+export interface DeviceRegistration {
+  id: string;
+  device_id: string;
+  device_name: string;
+  is_blocked: boolean;
+  created_at: string;
 }

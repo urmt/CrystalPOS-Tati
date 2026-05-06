@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { 
   Box, Typography, Card, CardContent, TextField, Button, Tabs, Tab, 
-  FormControlLabel, Switch, Alert, Snackbar, Paper, ListItemButton, Divider
+  FormControlLabel, Switch, Alert, Snackbar, Paper, IconButton, Drawer, List, ListItem, ListItemText, Divider, FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
-import { Settings as SettingsIcon, Business, Category, Payment, Add, Delete } from '@mui/icons-material';
+import { Settings as SettingsIcon, Business, Category, Payment, Add, Delete, Menu as MenuIcon, Dashboard as DashboardIcon, ShoppingCart, Inventory, Assessment, CheckCircle, People, Devices
+} from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Category as CategoryType } from '@/types';
-import DashboardLayout from '@/components/DashboardLayout';
 
 export default function SettingsPage() {
   const [tab, setTab] = useState(0);
@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const [subcategories, setSubcategories] = useState<any[]>([]);
   const [businessSettings, setBusinessSettings] = useState({ 
     business_name: 'Crystal Market', 
+    business_name_size: 'normal',
     business_email: 'info@crystalmarket.com', 
     business_phone: '+506 1234 5678', 
     address: 'Costa Rica' 
@@ -117,26 +118,57 @@ export default function SettingsPage() {
   };
 
   return (
-    <DashboardLayout currentPage="settings">
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" fontWeight="bold" sx={{ color: '#6B4C9A', mb: 3 }}>Settings</Typography>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
+      <Drawer variant="permanent" sx={{ width: 240, '& .MuiDrawer-paper': { width: 240, bgcolor: '#6B4C9A', color: 'white' } }}>
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="h6" fontWeight="bold">CrystalPOS</Typography>
+        </Box>
+        <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+        <List>
+          <ListItem component="a" href="/" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Dashboard" /></ListItem>
+          <ListItem component="a" href="/sales" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Sales" /></ListItem>
+          <ListItem component="a" href="/inventory" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Inventory" /></ListItem>
+          <ListItem component="a" href="/reports" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Reports" /></ListItem>
+          <ListItem component="a" href="/todos" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="TODOs" /></ListItem>
+          <ListItem component="a" href="/customers" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Customers" /></ListItem>
+          <ListItem component="a" href="/users" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Users" /></ListItem>
+          <ListItem component="a" href="/devices" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Devices" /></ListItem>
+          <ListItem component="a" href="/settings" sx={{ bgcolor: 'rgba(255,255,255,0.15)', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Settings" /></ListItem>
+        </List>
+      </Drawer>
+
+      <Box sx={{ flex: 1, p: 3 }}>
+        <Typography variant="h4" fontWeight="bold" sx={{ color: '#6B4C9A', mb: 3 }}>Configuración</Typography>
 
         <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3 }}>
-          <Tab icon={<Business />} label="Business" />
-          <Tab icon={<Category />} label="Categories" />
-          <Tab icon={<Payment />} label="Payments" />
+          <Tab icon={<Business />} label="Negocio" />
+          <Tab icon={<Category />} label="Categorías" />
+          <Tab icon={<Payment />} label="Pagos" />
         </Tabs>
 
         {tab === 0 && (
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>Business Information</Typography>
-              <TextField fullWidth label="Business Name" value={businessSettings.business_name} onChange={(e) => setBusinessSettings({ ...businessSettings, business_name: e.target.value })} sx={{ mb: 2 }} />
-              <TextField fullWidth label="Email" value={businessSettings.business_email} onChange={(e) => setBusinessSettings({ ...businessSettings, business_email: e.target.value })} sx={{ mb: 2 }} />
-              <TextField fullWidth label="Phone" value={businessSettings.business_phone} onChange={(e) => setBusinessSettings({ ...businessSettings, business_phone: e.target.value })} sx={{ mb: 2 }} />
-              <TextField fullWidth label="Address" value={businessSettings.address} onChange={(e) => setBusinessSettings({ ...businessSettings, address: e.target.value })} sx={{ mb: 2 }} />
+              <Typography variant="h6" gutterBottom>Información del Negocio / Business Information</Typography>
+              <TextField fullWidth label="Nombre del Negocio / Business Name" value={businessSettings.business_name} onChange={(e) => setBusinessSettings({ ...businessSettings, business_name: e.target.value })} sx={{ mb: 2 }} />
+              
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Tamaño del Nombre / Name Size</InputLabel>
+                <Select 
+                  value={businessSettings.business_name_size || 'normal'} 
+                  label="Tamaño del Nombre / Name Size"
+                  onChange={(e) => setBusinessSettings({ ...businessSettings, business_name_size: e.target.value })}
+                >
+                  <MenuItem value="normal">Normal (Grande / Large)</MenuItem>
+                  <MenuItem value="small">Pequeño / Small (50%)</MenuItem>
+                </Select>
+              </FormControl>
+              
+              <TextField fullWidth label="Correo / Email" value={businessSettings.business_email} onChange={(e) => setBusinessSettings({ ...businessSettings, business_email: e.target.value })} sx={{ mb: 2 }} />
+              <TextField fullWidth label="Teléfono / Phone" value={businessSettings.business_phone} onChange={(e) => setBusinessSettings({ ...businessSettings, business_phone: e.target.value })} sx={{ mb: 2 }} />
+              <TextField fullWidth label="Dirección / Address" value={businessSettings.address} onChange={(e) => setBusinessSettings({ ...businessSettings, address: e.target.value })} sx={{ mb: 2 }} />
               <Button variant="contained" onClick={handleSaveBusiness} disabled={loading}>
-                {loading ? 'Saving...' : 'Save Business Settings'}
+                {loading ? 'Guardando...' : 'Guardar / Save'}
               </Button>
             </CardContent>
           </Card>
@@ -145,7 +177,7 @@ export default function SettingsPage() {
         {tab === 1 && (
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>Product Categories</Typography>
+              <Typography variant="h6" gutterBottom>Categorías de Productos</Typography>
               {categories.map(cat => (
                 <Paper key={cat.id} sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -160,7 +192,7 @@ export default function SettingsPage() {
                   ))}
                 </Paper>
               ))}
-              <Button variant="contained" startIcon={<Add />} onClick={handleAddCategory} sx={{ mt: 2 }}>Add Category</Button>
+              <Button variant="contained" startIcon={<Add />} onClick={handleAddCategory} sx={{ mt: 2 }}>Agregar Categoría</Button>
             </CardContent>
           </Card>
         )}
@@ -168,13 +200,13 @@ export default function SettingsPage() {
         {tab === 2 && (
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>Payment Methods</Typography>
+              <Typography variant="h6" gutterBottom>Métodos de Pago</Typography>
               <FormControlLabel control={<Switch checked={paymentSettings.sinpe_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, sinpe_enabled: e.target.checked })} />} label="SINPE Móvil" sx={{ display: 'block', mb: 1 }} />
-              <FormControlLabel control={<Switch checked={paymentSettings.cash_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, cash_enabled: e.target.checked })} />} label="Cash" sx={{ display: 'block', mb: 1 }} />
-              <FormControlLabel control={<Switch checked={paymentSettings.card_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, card_enabled: e.target.checked })} />} label="Card" sx={{ display: 'block', mb: 1 }} />
+              <FormControlLabel control={<Switch checked={paymentSettings.cash_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, cash_enabled: e.target.checked })} />} label="Efectivo" sx={{ display: 'block', mb: 1 }} />
+              <FormControlLabel control={<Switch checked={paymentSettings.card_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, card_enabled: e.target.checked })} />} label="Tarjeta" sx={{ display: 'block', mb: 1 }} />
               <FormControlLabel control={<Switch checked={paymentSettings.lightning_enabled} onChange={(e) => setPaymentSettings({ ...paymentSettings, lightning_enabled: e.target.checked })} />} label="Lightning (Bitcoin)" sx={{ display: 'block', mb: 2 }} />
               <Button variant="contained" onClick={handleSavePayments} disabled={loading}>
-                {loading ? 'Saving...' : 'Save Payment Settings'}
+                {loading ? 'Guardando...' : 'Guardar'}
               </Button>
             </CardContent>
           </Card>
@@ -184,6 +216,6 @@ export default function SettingsPage() {
       <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
-    </DashboardLayout>
+    </Box>
   );
 }

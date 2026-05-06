@@ -1,118 +1,61 @@
+// =============================================================================
+// DASHBOARD LAYOUT COMPONENT
+// Common sidebar layout for admin pages
+// =============================================================================
+
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { ReactNode } from 'react';
 import Link from 'next/link';
-import { 
-  Box, Card, CardContent, Typography, Button, IconButton, Select, MenuItem, 
-  FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, 
-  TableHead, TableRow, Paper, Chip, Grid, LinearProgress, Drawer, List, ListItem, ListItemIcon, ListItemText, Divider, AppBar, Toolbar
-} from '@mui/material';
-import { 
-  Dashboard as DashboardIcon,
-  ShoppingCart,
-  Inventory,
-  People,
-  Settings,
-  Receipt,
-  Menu as MenuIcon,
-  Refresh, 
-  Logout,
-  Assessment,
-  Devices,
-  CheckCircle
-} from '@mui/icons-material';
-import { supabase } from '@/lib/supabase';
-import { Sale, Item, User, Category as CategoryType } from '@/types';
-import { formatCurrency, formatDate, getStockStatus, getStockStatusLabel } from '@/utils/format';
+import { Box, Drawer, List, ListItem, ListItemText, Typography, Divider } from '@mui/material';
+import { Dashboard as DashboardIcon, ShoppingCart, Inventory, Assessment, CheckCircle, People, Devices, Settings } from '@mui/icons-material';
 
-const COLORS = { 
-  primary: '#6B4C9A', 
-  secondary: '#D4AF37', 
-  accent: '#20B2AA', 
-  success: '#228B22', 
-  warning: '#FFA500', 
-  error: '#DC3545',
-  drawerWidth: 240
-};
+interface DashboardLayoutProps {
+  children: ReactNode;
+  currentPage?: string;
+}
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
-  { id: 'sales', label: 'Sales', icon: <ShoppingCart /> },
-  { id: 'inventory', label: 'Inventory', icon: <Inventory /> },
-  { id: 'reports', label: 'Reports', icon: <Assessment /> },
-  { id: 'todos', label: 'TODOs', icon: <CheckCircle /> },
-  { id: 'customers', label: 'Customers', icon: <People /> },
-  { id: 'users', label: 'Users', icon: <People /> },
-  { id: 'devices', label: 'Devices', icon: <Devices /> },
-  { id: 'settings', label: 'Settings', icon: <Settings /> },
+  { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, href: '/' },
+  { id: 'sales', label: 'Ventas', icon: <ShoppingCart />, href: '/sales' },
+  { id: 'inventory', label: 'Inventario', icon: <Inventory />, href: '/inventory' },
+  { id: 'reports', label: 'Reportes', icon: <Assessment />, href: '/reports' },
+  { id: 'todos', label: 'Notas', icon: <CheckCircle />, href: '/todos' },
+  { id: 'customers', label: 'Clientes', icon: <People />, href: '/customers' },
+  { id: 'users', label: 'Usuarios', icon: <People />, href: '/users' },
+  { id: 'devices', label: 'Dispositivos', icon: <Devices />, href: '/devices' },
+  { id: 'settings', label: 'Ajustes', icon: <Settings />, href: '/settings' },
 ];
 
-export default function DashboardLayout({ children, currentPage = 'dashboard' }: { children?: React.ReactNode, currentPage?: string }) {
-  const router = useRouter();
-  const [drawerOpen, setDrawerOpen] = useState(true);
-
+export default function DashboardLayout({ children, currentPage = '' }: DashboardLayoutProps) {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
-      {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerOpen ? COLORS.drawerWidth : 72,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: drawerOpen ? COLORS.drawerWidth : 72,
-            boxSizing: 'border-box',
-            bgcolor: COLORS.primary,
-            color: 'white',
-            transition: 'width 0.2s',
-            overflowX: 'hidden',
-          },
-        }}
-      >
+      <Drawer variant="permanent" sx={{ width: 240, '& .MuiDrawer-paper': { width: 240, bgcolor: '#6B4C9A', color: 'white' } }}>
         <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {drawerOpen && <Typography variant="h6" fontWeight="bold">CrystalPOS</Typography>}
-          <IconButton onClick={() => setDrawerOpen(!drawerOpen)} sx={{ color: 'white' }}>
-            <MenuIcon />
-          </IconButton>
+          <Typography variant="h6" fontWeight="bold">CrystalPOS</Typography>
         </Box>
-        
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-        
         <List>
           {navItems.map((item) => (
-            <ListItem
-              key={item.id}
-              component={Link}
-              href={item.id === 'dashboard' ? '/' : `/${item.id}`}
-              sx={{
-                bgcolor: currentPage === item.id ? 'rgba(255,255,255,0.15)' : 'transparent',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
-                cursor: 'pointer',
-                borderRadius: 1,
+            <ListItem 
+              key={item.id} 
+              component={Link} 
+              href={item.href}
+              sx={{ 
+                bgcolor: item.href === `/${currentPage}` || (currentPage === '' && item.href === '/') ? 'rgba(255,255,255,0.15)' : 'transparent', 
+                cursor: 'pointer', 
+                borderRadius: 1, 
                 mx: 1,
                 my: 0.5,
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
               }}
             >
-              <ListItemIcon sx={{ color: 'white', minWidth: drawerOpen ? 40 : 'auto' }}>
-                {item.icon}
-              </ListItemIcon>
-              {drawerOpen && <ListItemText primary={item.label} />}
+              <ListItemText primary={item.label} />
             </ListItem>
           ))}
         </List>
-        
-        <Box sx={{ mt: 'auto', p: 2 }}>
-          {drawerOpen && (
-            <Typography variant="caption" sx={{ opacity: 0.7 }}>
-              v1.0.0
-            </Typography>
-          )}
-        </Box>
       </Drawer>
-
-      {/* Main Content */}
-      <Box component="main" sx={{ flex: 1, p: 0, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         {children}
       </Box>
     </Box>

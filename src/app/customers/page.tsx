@@ -51,7 +51,8 @@ export default function CustomersPage() {
   useEffect(() => { fetchData(); }, []);
 
   const filteredCustomers = customers.filter(c => 
-    c.phone.includes(searchQuery) || 
+    (c.country_code + c.phone).includes(searchQuery) || 
+    c.phone.includes(searchQuery) ||
     (c.name && c.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
