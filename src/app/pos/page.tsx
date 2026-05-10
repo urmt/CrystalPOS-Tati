@@ -25,117 +25,10 @@ import { supabase } from '@/lib/supabase';
 import { logErrorAndAlert } from '@/lib/telegram';
 import { Item, Category as CategoryType, Subcategory, Todo } from '@/types';
 import { formatCurrency } from '@/utils/format';
-
-const COLORS = {
-  primary: '#6B4C9A',
-  primaryDark: '#4a3570',
-  secondary: '#D4AF37',
-  accent: '#20B2AA',
-  success: '#228B22',
-  error: '#DC3545',
-  warning: '#FF9800',
-  darkText: '#1a1a1a',
-  lightText: '#333333',
-};
-
-// Crystal gradient theme - gold & purple with shimmer
-const crystalTheme = `
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-  @keyframes sparkle {
-    0%, 100% { opacity: 0; transform: scale(0); }
-    50% { opacity: 1; transform: scale(1); }
-  }
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-8px); }
-  }
-  @keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  @keyframes gold-pulse {
-    0%, 100% { box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
-    50% { box-shadow: 0 0 30px rgba(212, 175, 55, 0.7); }
-  }
-  .crystal-bg {
-    background: linear-gradient(135deg, 
-      #2d1b4e 0%, 
-      #1a0a2e 15%,
-      #4a2c6a 30%,
-      #6B4C9A 50%,
-      #3d2666 70%,
-      #1a0a2e 85%,
-      #2d1b4e 100%
-    );
-    background-size: 400% 400%;
-    animation: gradient-shift 12s ease infinite;
-    position: relative;
-    overflow: hidden;
-  }
-  .crystal-bg::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-      radial-gradient(ellipse at 15% 15%, rgba(212, 175, 55, 0.25) 0%, transparent 50%),
-      radial-gradient(ellipse at 85% 85%, rgba(107, 76, 154, 0.3) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 30%, rgba(212, 175, 55, 0.15) 0%, transparent 40%);
-    animation: shimmer 6s linear infinite;
-    pointer-events: none;
-  }
-  .crystal-bg::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-      radial-gradient(circle at 20% 70%, rgba(212, 175, 55, 0.1) 0%, transparent 20%),
-      radial-gradient(circle at 80% 20%, rgba(107, 76, 154, 0.15) 0%, transparent 25%),
-      radial-gradient(circle at 60% 80%, rgba(32, 178, 170, 0.08) 0%, transparent 20%);
-    animation: shimmer 10s linear infinite reverse;
-    pointer-events: none;
-  }
-  .glass-card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(212, 175, 55, 0.25);
-    border-radius: 16px;
-    animation: gold-pulse 4s ease-in-out infinite;
-  }
-  .glass-card-subtle {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
-  }
-  .gold-glow {
-    text-shadow: 0 0 10px rgba(212, 175, 55, 0.6), 0 0 20px rgba(212, 175, 55, 0.4);
-  }
-  .gold-border {
-    border-color: rgba(212, 175, 55, 0.5) !important;
-  }
-  .purple-glow {
-    text-shadow: 0 0 8px rgba(107, 76, 154, 0.5);
-  }
-  .MuiButton-outlined {
-    border-color: rgba(100, 149, 237, 0.9) !important;
-    color: #6495ED !important;
-    background: rgba(100, 149, 237, 0.1) !important;
-  }
-  .MuiButton-outlined:hover {
-    border-color: #4169E1 !important;
-    background: rgba(100, 149, 237, 0.25) !important;
-  }
-`;
+import { COLORS, CRYSTAL_THEME } from './constants';
+import { getStockWarning } from './utils';
+import { ItemDetailDialog } from '@/components/pos/ItemDetailDialog';
+import { CheckoutDialog } from '@/components/pos/CheckoutDialog';
 
 interface CartItem {
   item: Item;
@@ -144,41 +37,6 @@ interface CartItem {
   itemDiscount?: number;
   manualPrice?: number | null;
 }
-
-// =============================================================================
-// Stock Warning System
-// Returns warning level based on days until stock runs out
-// =============================================================================
-const getStockWarning = (item: Item): { level: 'none' | 'warning' | 'critical' | 'out'; days: number; message: string } => {
-  const stock = item.current_weight_grams || 0;
-  const rate = item.depletion_rate_grams_per_day || 0;
-  
-  // Out of stock
-  if (stock <= 0) {
-    return { level: 'out', days: 0, message: 'OUT OF STOCK' };
-  }
-  
-  // No depletion rate = unknown
-  if (rate <= 0) {
-    return { level: 'none', days: 999, message: 'In stock - rate unknown' };
-  }
-  
-  // Calculate days until empty
-  const daysUntilEmpty = Math.round(stock / rate);
-  
-  // Critical: less than 30 days (red)
-  if (daysUntilEmpty <= 30) {
-    return { level: 'critical', days: daysUntilEmpty, message: `Run out in ${daysUntilEmpty} days!` };
-  }
-  
-  // Warning: less than 60 days (orange)
-  if (daysUntilEmpty <= 60) {
-    return { level: 'warning', days: daysUntilEmpty, message: `Low stock - ${daysUntilEmpty} days left` };
-  }
-  
-  // Good stock
-  return { level: 'none', days: daysUntilEmpty, message: `~${daysUntilEmpty} days` };
-};
 
 const OFFLINE_KEY = 'crystalpos_offline_data';
 const PENDING_SALES_KEY = 'crystalpos_pending_sales';
@@ -862,6 +720,12 @@ const handleGallerySwipe = (direction: 'prev' | 'next') => {
     return matchesCat && matchesSub && matchesSearch;
   });
 
+  const handleOpenNumberPad = (type: 'phone' | 'name', currentVal: string) => {
+    setNumberPadItemIdx(type === 'phone' ? -2 : -3);
+    setNumberPadValue(currentVal);
+    setShowNumberPad(true);
+  };
+
   if (isBlocked) return (
     <Box sx={{ p: 4, textAlign: 'center', mt: 10, color: COLORS.darkText }}>
       <Typography variant="h4" color="error">Device Blocked</Typography>
@@ -883,7 +747,7 @@ const handleGallerySwipe = (direction: 'prev' | 'next') => {
 
   return (
     <>
-      <style>{crystalTheme}</style>
+      <style>{CRYSTAL_THEME}</style>
       <Box className="crystal-bg" sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <AppBar position="static" sx={{ bgcolor: COLORS.primary }}>
         <Toolbar>
@@ -1524,232 +1388,42 @@ variant="outlined"
         </Paper>
       )}
 
-      {/* DETAIL MODAL - Add item with custom weight */}
-      <Dialog open={showDetailModal} onClose={() => setShowDetailModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ color: COLORS.darkText, textAlign: 'center' }}>
-          {detailItem?.name}
-        </DialogTitle>
-        <DialogContent>
-          {/* Large Image */}
-          <Box sx={{ width: '100%', height: 200, bgcolor: 'grey.200', borderRadius: 2, mb: 2, overflow: 'hidden' }}>
-            {detailItem?.image_url ? (
-              <img src={detailItem.image_url} alt={detailItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem' }}>💎</Box>
-            )}
-          </Box>
+      <ItemDetailDialog 
+        open={showDetailModal} 
+        onClose={() => setShowDetailModal(false)}
+        item={detailItem}
+        weight={detailWeight}
+        setWeight={setDetailWeight}
+        finalPrice={detailFinalPrice}
+        setFinalPrice={setDetailFinalPrice}
+        onAdd={addFromDetail}
+        isFixedPrice={isFixedPrice}
+        getDisplayPrice={getDisplayPrice}
+      />
 
-          <Typography variant="body2" sx={{ color: COLORS.lightText, mb: 2, textAlign: 'center' }}>
-            {detailItem?.description}
-          </Typography>
-
-          {detailItem && isFixedPrice(detailItem) ? (
-            <Box sx={{ textAlign: 'center', mb: 2 }}>
-              <Typography variant="h5" sx={{ color: COLORS.primary, fontWeight: 'bold', mb: 1 }}>
-                Precio: {formatCurrency(getDisplayPrice(detailItem))}
-              </Typography>
-              <Typography variant="body2" sx={{ color: COLORS.lightText }}>
-                {detailItem.current_weight_grams > 0 ? `Stock: ${detailItem.current_weight_grams}g` : 'Sin stock'}
-              </Typography>
-            </Box>
-          ) : (
-            <>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Typography sx={{ color: COLORS.lightText }}>Peso (g):</Typography>
-                <IconButton onClick={() => setDetailWeight(Math.max(0, detailWeight - 10))} size="small" sx={{ bgcolor: 'grey.200' }}><Remove /></IconButton>
-                <TextField
-                  fullWidth
-                  label="Peso (gramos)"
-                  type="number"
-                  value={detailWeight}
-                  onChange={(e) => setDetailWeight(Number(e.target.value))}
-                  sx={{ flex: 1, bgcolor: 'white' }}
-                  inputProps={{ style: { textAlign: 'center', fontSize: '1.2rem' } }}
-                />
-                <IconButton onClick={() => setDetailWeight(detailWeight + 10)} size="small" sx={{ bgcolor: 'grey.200' }}><Add /></IconButton>
-              </Box>
-
-              <Typography variant="h6" sx={{ color: COLORS.darkText, mb: 1, textAlign: 'center' }}>
-                Precio automático: {formatCurrency(Number(detailItem?.price_crc || 0) * detailWeight)}
-              </Typography>
-            </>
-          )}
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <Typography sx={{ color: COLORS.lightText }}>O precio:</Typography>
-            <IconButton onClick={() => setDetailFinalPrice(Math.max(0, (detailFinalPrice || 0) - 1000))} size="small" sx={{ bgcolor: 'grey.200' }}><Remove /></IconButton>
-            <TextField
-              fullWidth
-              label="O precio final (override)"
-              type="number"
-              value={detailFinalPrice !== null ? detailFinalPrice : ''}
-              placeholder="Precio manual"
-              onChange={(e) => setDetailFinalPrice(e.target.value ? Number(e.target.value) : null)}
-              sx={{ flex: 1, bgcolor: 'white' }}
-              inputProps={{ style: { textAlign: 'center' } }}
-            />
-            <IconButton onClick={() => setDetailFinalPrice((detailFinalPrice || 0) + 1000)} size="small" sx={{ bgcolor: 'grey.200' }}><Add /></IconButton>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-          <Button onClick={() => setShowDetailModal(false)} variant="outlined">Cancelar</Button>
-          <Button onClick={addFromDetail} variant="contained" color="success" sx={{ bgcolor: COLORS.success }}>
-            Añadir al Carrito
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {showCheckout && (
-        <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <Paper sx={{ p: 3, m: 2, maxWidth: 400, width: '100%', bgcolor: 'white' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="h6" sx={{ color: COLORS.darkText }}>Pago / Checkout</Typography>
-              <IconButton size="small" onClick={() => setShowCheckout(false)}><Close /></IconButton>
-            </Box>
-            <Divider sx={{ mb: 2 }} />
-            {cart.map(c => (
-              <Box key={c.item.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                <Typography sx={{ color: COLORS.lightText }}>{c.quantity}x {c.item.name}</Typography>
-                <Typography sx={{ color: COLORS.darkText }}>{formatCurrency(c.subtotal)}</Typography>
-              </Box>
-            ))}
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ color: COLORS.lightText }}>Subtotal:</Typography>
-              <Typography sx={{ color: COLORS.darkText, fontWeight: 'bold' }}>{formatCurrency(rawTotal)}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ color: COLORS.lightText }}>Descuento / Discount (%):</Typography>
-              <IconButton onClick={() => setDiscountPercent(Math.max(0, discountPercent - 5))} size="small" sx={{ bgcolor: 'grey.200' }}><Remove /></IconButton>
-              <TextField 
-                type="number" 
-                size="small" 
-                value={discountPercent} 
-                onChange={(e) => { setDiscountPercent(Number(e.target.value)); setDiscountOverride(null); }}
-                sx={{ width: 60, bgcolor: 'white' }}
-                inputProps={{ style: { textAlign: 'center' } }}
-              />
-              <IconButton onClick={() => setDiscountPercent(Math.min(100, discountPercent + 5))} size="small" sx={{ bgcolor: 'grey.200' }}><Add /></IconButton>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ color: COLORS.lightText }}>O precio final:</Typography>
-              <IconButton onClick={() => setDiscountOverride(Math.max(0, (discountOverride || rawTotal) - 1000))} size="small" sx={{ bgcolor: 'grey.200' }}><Remove /></IconButton>
-              <TextField 
-                type="number" 
-                size="small" 
-                value={discountOverride !== null ? discountOverride : ''} 
-                placeholder={formatCurrency(rawTotal)}
-                onChange={(e) => setDiscountOverride(e.target.value ? Number(e.target.value) : null)}
-                sx={{ width: 100, bgcolor: 'white' }}
-                inputProps={{ style: { textAlign: 'center' } }}
-              />
-              <IconButton onClick={() => setDiscountOverride((discountOverride || rawTotal) + 1000)} size="small" sx={{ bgcolor: 'grey.200' }}><Add /></IconButton>
-            </Box>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="h6" sx={{ mb: 2, color: COLORS.darkText, fontWeight: 'bold' }}>Total: {formatCurrency(finalTotal)}</Typography>
-
-            <Typography sx={{ mb: 1, color: COLORS.lightText }}>Método de Pago / Payment Method:</Typography>
-            <FormControl fullWidth>
-              <RadioGroup row value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
-                {paymentSettings.cash_enabled && (
-                  <FormControlLabel value="cash" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>Efectivo / Cash</Typography>} />
-                )}
-                {paymentSettings.sinpe_enabled && (
-                  <FormControlLabel value="sinpe" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>SINPE</Typography>} />
-                )}
-                {paymentSettings.card_enabled && (
-                  <FormControlLabel value="card" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>Tarjeta / Card</Typography>} />
-                )}
-                {paymentSettings.lightning_enabled && (
-                  <FormControlLabel value="lightning" control={<Radio />} label={<Typography sx={{ color: COLORS.darkText }}>BTC/LN</Typography>} />
-                )}
-              </RadioGroup>
-            </FormControl>
-            
-            {/* Customer Receipt Section */}
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography sx={{ mb: 1, fontWeight: 'bold', color: COLORS.darkText }}>
-                ¿Recibo por WhatsApp? (opcional)
-              </Typography>
-              
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Checkbox checked={wantReceipt} onChange={(e) => setWantReceipt(e.target.checked)} />
-                <Typography variant="caption" sx={{ color: COLORS.lightText }}>
-                  Si el cliente quiere recibo por WhatsApp
-                </Typography>
-              </Box>
-              
-              {wantReceipt && (
-                <>
-                  {/* Country code selector */}
-                  <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                    <FormControl size="small" sx={{ minWidth: 100 }}>
-                      <Select value={countryCode} onChange={(e) => setCountryCode(e.target.value)} sx={{ bgcolor: 'white' }}>
-                        <MenuItem value="+1">+1 US/CA</MenuItem>
-                        <MenuItem value="+52">+52 MX</MenuItem>
-                        <MenuItem value="+506">+506 CR</MenuItem>
-                        <MenuItem value="+57">+57 CO</MenuItem>
-                        <MenuItem value="+58">+58 VE</MenuItem>
-                        <MenuItem value="+54">+54 AR</MenuItem>
-                        <MenuItem value="+55">+55 BR</MenuItem>
-                        <MenuItem value="+39">+39 IT</MenuItem>
-                        <MenuItem value="+33">+33 FR</MenuItem>
-                        <MenuItem value="+34">+34 ES</MenuItem>
-                        <MenuItem value="+49">+49 DE</MenuItem>
-                        <MenuItem value="+31">+31 NL</MenuItem>
-                        <MenuItem value="__OTHER__">+ Other</MenuItem>
-                      </Select>
-                    </FormControl>
-                    
-                    {/* Phone - tap to open number pad */}
-                    <Box 
-                      onClick={() => {
-                        setNumberPadItemIdx(-2); // -2 = phone
-                        setNumberPadValue(customerPhone);
-                        setShowNumberPad(true);
-                      }}
-                      sx={{ 
-                        flex: 1, p: 1.5, borderRadius: 1, border: '1px solid #ccc', bgcolor: 'white',
-                        cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' }
-                      }}
-                    >
-                      {customerPhone ? (
-                        <Typography sx={{ color: '#333' }}>{customerPhone}</Typography>
-                      ) : (
-                        <Typography sx={{ color: '#999' }}>Número (tap)</Typography>
-                      )}
-                    </Box>
-                  </Box>
-                  
-                  {/* Customer Name - tap to open letter pad */}
-                  <Box 
-                    onClick={() => {
-                      setNumberPadItemIdx(-3); // -3 = name
-                      setNumberPadValue(customerName);
-                      setShowNumberPad(true);
-                    }}
-                    sx={{ 
-                      p: 1.5, borderRadius: 1, border: '1px solid #ccc', bgcolor: 'white',
-                      cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' }
-                    }}
-                  >
-                    {customerName ? (
-                      <Typography sx={{ color: '#333' }}>{customerName}</Typography>
-                    ) : (
-                      <Typography sx={{ color: '#999' }}>Nombre (tap para letras)</Typography>
-                    )}
-                  </Box>
-                </>
-              )}
-            </Box>
-            
-            <Button variant="contained" color="success" fullWidth size="large" disabled={!paymentMethod || processing} onClick={handleCheckout} sx={{ bgcolor: COLORS.success, mt: 2, py: 2.5, fontSize: '1.2rem' }}>
-              {processing ? 'Procesando / Processing...' : 'Completar Venta / Complete Sale'}
-            </Button>
-            {!isOnline && <Typography variant="caption" sx={{ color: COLORS.lightText, display: 'block', mt: 1 }}>Sin Conexión - Se sincronizará cuando esté en línea / Offline - Will sync when online</Typography>}
-          </Paper>
-        </Box>
-      )}
+      <CheckoutDialog 
+        open={showCheckout}
+        onClose={() => setShowCheckout(false)}
+        cart={cart}
+        rawTotal={rawTotal}
+        discountPercent={discountPercent}
+        setDiscountPercent={setDiscountPercent}
+        discountOverride={discountOverride}
+        setDiscountOverride={setDiscountOverride}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
+        processing={processing}
+        onCheckout={handleCheckout}
+        paymentSettings={paymentSettings}
+        isOnline={isOnline}
+        wantReceipt={wantReceipt}
+        setWantReceipt={setWantReceipt}
+        countryCode={countryCode}
+        setCountryCode={setCountryCode}
+        customerPhone={customerPhone}
+        customerName={customerName}
+        openNumberPad={handleOpenNumberPad}
+      />
 
       {/* ADD ITEM DIALOG */}
       <Dialog open={showAddItem} onClose={() => setShowAddItem(false)} maxWidth="sm" fullWidth>

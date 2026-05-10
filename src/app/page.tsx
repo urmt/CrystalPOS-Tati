@@ -1,30 +1,21 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Box, Card, CardContent, Typography, Button, IconButton, Select, MenuItem, 
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, 
-  TableHead, TableRow, Paper, Chip, LinearProgress, Drawer, List, ListItem, ListItemIcon, ListItemText, Divider
+  TableHead, TableRow, Chip, LinearProgress, Drawer, List, ListItem, ListItemIcon, ListItemText, Divider
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import { 
-  Dashboard as DashboardIcon,
-  ShoppingCart,
-  Inventory,
-  People,
-  Settings,
-  Receipt,
-  Menu as MenuIcon,
-  Refresh, 
-  Logout,
-  Assessment,
-  CheckCircle,
-  Devices
+  Dashboard as DashboardIcon, ShoppingCart, Inventory, People, Settings, 
+  Menu as MenuIcon, Refresh, Logout, Assessment, CheckCircle, Devices 
 } from '@mui/icons-material';
+
 import { supabase } from '@/lib/supabase';
-import { Sale, Item, User } from '@/types';
-import { formatCurrency, formatDate, getStockStatus, getStockStatusLabel } from '@/utils/format';
+import { formatCurrency, formatDate } from '@/utils/format';
+import { useDashboardData } from '@/lib/hooks';
 
 const COLORS = { 
   primary: '#6B4C9A', 
@@ -50,98 +41,16 @@ const navItems = [
 
 export default function DashboardPage() {
   const router = useRouter();
-  
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [period, setPeriod] = useState('today');
-  const [startDate, setStartDate] = useState(() => {
-    const now = new Date();
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return d.toISOString();
-  });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString());
   const [drawerOpen, setDrawerOpen] = useState(true);
-  
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      // Get date strings in Costa Rica timezone (UTC-6)
-      const startStr = startDate.split('T')[0];
-      const endStr = endDate.split('T')[0];
-      
-      const [salesRes, itemsRes, usersRes] = await Promise.all([
-        supabase.from('sales')
-          .select('*')
-          .gte('sale_date', startStr + 'T00:00:00')
-          .lte('sale_date', endStr + 'T23:59:59')
-          .order('sale_date', { ascending: false }),
-        supabase.from('items').select('*').order('name'),
-        supabase.from('users').select('*').order('email'),
-      ]);
-      if (salesRes.data) setSales(salesRes.data as Sale[]);
-      if (itemsRes.data) setItems(itemsRes.data as Item[]);
-      if (usersRes.data) setUsers(usersRes.data as User[]);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  useEffect(() => { 
-    const now = new Date();
-    let start: Date, end: Date;
-    switch (period) {
-      case 'today':
-        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        end = now;
-        break;
-      case 'week':
-        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        end = now;
-        break;
-      case 'month':
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        end = now;
-        break;
-      case 'year':
-        start = new Date(now.getFullYear(), 0, 1);
-        end = now;
-        break;
-      default:
-        start = new Date(0);
-        end = now;
-    }
-    setStartDate(start.toISOString());
-    setEndDate(end.toISOString());
-  }, [period]);
-  
-  useEffect(() => { 
-    fetchData(); 
-  }, [startDate, endDate]);
-  
-  const filteredSales = useMemo(() => {
-    const now = new Date();
-    let startDate: Date;
-    switch (period) {
-      case 'today': startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); break;
-      case 'week': startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
-      case 'month': startDate = new Date(now.getFullYear(), now.getMonth(), 1); break;
-      case 'year': startDate = new Date(now.getFullYear(), 0, 1); break;
-      default: startDate = new Date(0);
-    }
-    return sales.filter(s => new Date(s.sale_date) >= startDate);
-  }, [sales, period]);
+  const { sales, items, users, isLoading, period, setPeriod, refresh } = useDashboardData();
   
   const stats = useMemo(() => {
-    const totalRevenue = filteredSales.reduce((sum, s) => sum + Number(s.total_crc), 0);
-    const transactionCount = filteredSales.length;
+    const totalRevenue = sales.reduce((sum, s) => sum + Number(s.total_crc), 0);
+    const transactionCount = sales.length;
     const avgSale = transactionCount > 0 ? totalRevenue / transactionCount : 0;
     const lowStock = items.filter(i => i.is_active && !i.deleted_at && (i.current_weight_grams || 0) < (i.min_threshold_grams || 100)).length;
     return { totalRevenue, transactionCount, avgSale, lowStock };
-  }, [filteredSales, items]);
+  }, [sales, items]);
   
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -150,7 +59,6 @@ export default function DashboardPage() {
   
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
-      {/* Sidebar */}
       <Drawer
         variant="permanent"
         sx={{
@@ -172,44 +80,22 @@ export default function DashboardPage() {
             <MenuIcon />
           </IconButton>
         </Box>
-        
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-        
         <List>
           {navItems.map((item) => (
-            <ListItem
-              key={item.id}
-              component="a"
-              href={item.href}
-              sx={{
-                bgcolor: 'transparent',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
-                cursor: 'pointer',
-                borderRadius: 1,
-                mx: 1,
-                my: 0.5,
-              }}
-            >
-              <ListItemIcon sx={{ color: 'white', minWidth: drawerOpen ? 40 : 'auto' }}>
-                {item.icon}
-              </ListItemIcon>
+            <ListItem key={item.id} component="a" href={item.href} sx={{ bgcolor: 'transparent', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, cursor: 'pointer', borderRadius: 1, mx: 1, my: 0.5 }}>
+              <ListItemIcon sx={{ color: 'white', minWidth: drawerOpen ? 40 : 'auto' }}>{item.icon}</ListItemIcon>
               {drawerOpen && <ListItemText primary={item.label} />}
             </ListItem>
           ))}
         </List>
       </Drawer>
 
-      {/* Main Content */}
       <Box component="main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
-        {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, bgcolor: 'white', p: 2, borderRadius: 2 }}>
           <Box>
-            <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>
-              Dashboard
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Systems Manager Overview
-            </Typography>
+            <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>Dashboard</Typography>
+            <Typography variant="body2" color="text.secondary">Systems Manager Overview</Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -221,14 +107,13 @@ export default function DashboardPage() {
                 <MenuItem value="year">This Year</MenuItem>
               </Select>
             </FormControl>
-            <IconButton onClick={fetchData} sx={{ color: COLORS.primary }}><Refresh /></IconButton>
+            <IconButton onClick={refresh} sx={{ color: COLORS.primary }}><Refresh /></IconButton>
             <Button variant="outlined" color="error" onClick={handleLogout} startIcon={<Logout />}>Logout</Button>
           </Box>
         </Box>
         
         {isLoading && <LinearProgress />}
         
-        {/* Stats Cards */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{ bgcolor: COLORS.primary, color: 'white' }}>
@@ -239,61 +124,34 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </Grid>
-          
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="body2" color="text.secondary">Average Sale</Typography>
-                <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>{formatCurrency(stats.avgSale)}</Typography>
-              </CardContent>
-            </Card>
+            <Card><CardContent>
+              <Typography variant="body2" color="text.secondary">Average Sale</Typography>
+              <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>{formatCurrency(stats.avgSale)}</Typography>
+            </CardContent></Card>
           </Grid>
-          
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="body2" color="text.secondary">Low Stock Items</Typography>
-                <Typography variant="h4" fontWeight="bold" sx={{ color: stats.lowStock > 0 ? COLORS.warning : COLORS.success }}>{stats.lowStock}</Typography>
-              </CardContent>
-            </Card>
+            <Card><CardContent>
+              <Typography variant="body2" color="text.secondary">Low Stock Items</Typography>
+              <Typography variant="h4" fontWeight="bold" sx={{ color: stats.lowStock > 0 ? COLORS.warning : COLORS.success }}>{stats.lowStock}</Typography>
+            </CardContent></Card>
           </Grid>
-          
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="body2" color="text.secondary">Active Users</Typography>
-                <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>{users.filter(u => u.is_active).length}</Typography>
-              </CardContent>
-            </Card>
+            <Card><CardContent>
+              <Typography variant="body2" color="text.secondary">Active Users</Typography>
+              <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>{users.filter(u => u.is_active).length}</Typography>
+            </CardContent></Card>
           </Grid>
         </Grid>
         
-        {/* Quick Actions */}
         <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>Quick Actions / Acciones Rápidas</Typography>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Button variant="contained" fullWidth href="/pos" sx={{ py: 2, bgcolor: COLORS.primary, '&:hover': { bgcolor: COLORS.primaryDark } }}>
-              <ShoppingCart sx={{ mr: 1 }} /> Nueva Venta
-            </Button>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Button variant="contained" fullWidth href="/inventory" sx={{ py: 2, bgcolor: COLORS.secondary, color: 'black', '&:hover': { bgcolor: '#C5A028' } }}>
-              <Inventory sx={{ mr: 1 }} /> Inventario
-            </Button>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Button variant="contained" fullWidth href="/reports" sx={{ py: 2, bgcolor: COLORS.accent, '&:hover': { bgcolor: '#1A9A94' } }}>
-              <Assessment sx={{ mr: 1 }} /> Reportes
-            </Button>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Button variant="contained" fullWidth href="/todos" sx={{ py: 2, bgcolor: COLORS.warning, color: 'black', '&:hover': { bgcolor: '#E68900' } }}>
-              <CheckCircle sx={{ mr: 1 }} /> Notas
-            </Button>
-          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><Button variant="contained" fullWidth href="/pos" sx={{ py: 2, bgcolor: COLORS.primary }}><ShoppingCart sx={{ mr: 1 }} /> Nueva Venta</Button></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><Button variant="contained" fullWidth href="/inventory" sx={{ py: 2, bgcolor: COLORS.secondary, color: 'black' }}><Inventory sx={{ mr: 1 }} /> Inventario</Button></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><Button variant="contained" fullWidth href="/reports" sx={{ py: 2, bgcolor: COLORS.accent }}><Assessment sx={{ mr: 1 }} /> Reportes</Button></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><Button variant="contained" fullWidth href="/todos" sx={{ py: 2, bgcolor: COLORS.warning, color: 'black' }}><CheckCircle sx={{ mr: 1 }} /> Notas</Button></Grid>
         </Grid>
         
-        {/* Recent Sales */}
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>Recent Transactions</Typography>
@@ -316,8 +174,7 @@ export default function DashboardPage() {
                       <TableCell align="right">{formatCurrency(Number(sale.total_crc))}</TableCell>
                       <TableCell><Chip label={sale.payment_method || '-'} size="small" /></TableCell>
                       <TableCell>
-                        <Chip label={sale.payment_status} size="small" 
-                          color={sale.payment_status === 'completed' ? 'success' : sale.payment_status === 'failed' ? 'error' : 'warning'} />
+                        <Chip label={sale.payment_status} size="small" color={sale.payment_status === 'completed' ? 'success' : sale.payment_status === 'failed' ? 'error' : 'warning'} />
                       </TableCell>
                     </TableRow>
                   ))}
