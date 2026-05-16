@@ -10,7 +10,7 @@ export function useDashboardData(initialPeriod: string = 'today') {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState(initialPeriod);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -21,7 +21,8 @@ export function useDashboardData(initialPeriod: string = 'today') {
       setItems(data.items);
       setUsers(data.users);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch dashboard data'));
+      const message = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
+      setError(message);
       console.error('Dashboard Data Fetch Error:', err);
     } finally {
       setIsLoading(false);
@@ -42,4 +43,20 @@ export function useDashboardData(initialPeriod: string = 'today') {
     refresh: loadData,
     error
   };
+}
+
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
 }
