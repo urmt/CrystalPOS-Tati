@@ -1,71 +1,78 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, 
-  TableRow, Paper, Chip, LinearProgress, Dialog, DialogTitle, DialogContent, 
-  DialogActions, TextField, FormControl, InputLabel, Select, Switch, MenuItem
-} from '@mui/material';
+import { Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
 import DashboardLayout from '@/components/DashboardLayout';
+
+type UserRole = 'admin' | 'vendor_manager';
+
+interface UserForm {
+  email: string;
+  full_name: string;
+  role: UserRole;
+  is_active: boolean;
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [form, setForm] = useState({ email: '', full_name: '', role: 'vendor_manager' as const, is_active: true });
+  const [form, setForm] = useState<UserForm>({ email: '', full_name: '', role: 'vendor_manager', is_active: true });
 
-  const fetchData = async () => {
+  function fetchData() {
     setIsLoading(true);
-    try {
-      const { data } = await supabase.from('users').select('*').order('email');
+    supabase.from('users').select('*').order('email').then(({ data }) => {
       if (data) setUsers(data as User[]);
-    } catch (e) { console.error(e); }
-    setIsLoading(false);
-  };
+      setIsLoading(false);
+    });
+  }
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleSave = async () => {
-    try {
-      if (editUser) {
-        await supabase.from('users').update(form).eq('id', editUser.id);
-      } else {
-        await supabase.from('users').insert({ ...form, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-      }
-      setDialogOpen(false);
-      fetchData();
-    } catch (e) { console.error(e); }
-  };
+  function openAddDialog() {
+    setEditUser(null);
+    setForm({ email: '', full_name: '', role: 'vendor_manager', is_active: true });
+    setDialogOpen(true);
+  }
 
-  const handleToggle = async (user: User) => {
-    await supabase.from('users').update({ is_active: !user.is_active }).eq('id', user.id);
-    fetchData();
-  };
+  function openEditDialog(user: User) {
+    setEditUser(user);
+    setForm({ email: user.email, full_name: user.full_name || '', role: user.role as UserRole, is_active: user.is_active });
+    setDialogOpen(true);
+  }
 
-  const handleDelete = async (user: User) => {
-    if (!confirm(`Delete ${user.email}?`)) return;
-    await supabase.from('users').delete().eq('id', user.id);
-    fetchData();
-  };
+  function handleSave() {
+    if (editUser) {
+      supabase.from('users').update(form).eq('id', editUser.id).then(() => {
+        setDialogOpen(false);
+        fetchData();
+      });
+    } else {
+      supabase.from('users').insert({ ...form, id: crypto.randomUUID(), created_at: new Date().toISOString() }).then(() => {
+        setDialogOpen(false);
+        fetchData();
+      });
+    }
+  }
 
-  const actions = (
-    <Button 
-      variant="contained" 
-      startIcon={<Add />} 
-      onClick={() => { setEditUser(null); setForm({ email: '', full_name: '', role: 'vendor_manager', is_active: true }); setDialogOpen(true); }}
-    >
-      Add User
-    </Button>
-  );
+  function handleToggle(user: User) {
+    supabase.from('users').update({ is_active: !user.is_active }).eq('id', user.id).then(() => fetchData());
+  }
+
+  function handleDelete(user: User) {
+    if (confirm(`Delete ${user.email}?`)) {
+      supabase.from('users').delete().eq('id', user.id).then(() => fetchData());
+    }
+  }
 
   return (
-    <DashboardLayout currentPage="users" title="Users" actions={actions}>
+    <DashboardLayout currentPage="users" title="Users" actions={<Button variant="contained" startIcon={<Add />} onClick={openAddDialog}>Add User</Button>}>
       {isLoading && <LinearProgress />}
-      
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -84,19 +91,11 @@ export default function UsersPage() {
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.full_name || '-'}</TableCell>
                 <TableCell><Chip label={user.role} size="small" /></TableCell>
-                <TableCell>
-                  <Chip 
-                    label={user.is_active ? 'Active' : 'Inactive'} 
-                    size="small" 
-                    color={user.is_active ? 'success' : 'default'}
-                  />
-                </TableCell>
+                <TableCell><Chip label={user.is_active ? 'Active' : 'Inactive'} size="small" color={user.is_active ? 'success' : 'default'} /></TableCell>
                 <TableCell>{user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}</TableCell>
                 <TableCell align="right">
-                  <Button size="small" onClick={() => { setEditUser(user); setForm({ email: user.email, full_name: user.full_name || '', role: user.role, is_active: user.is_active }); setDialogOpen(true); }}>Edit</Button>
-                  <Button size="small" color={user.is_active ? 'error' : 'success'} onClick={() => handleToggle(user)}>
-                    {user.is_active ? 'Disable' : 'Enable'}
-                  </Button>
+                  <Button size="small" onClick={() => openEditDialog(user)}>Edit</Button>
+                  <Button size="small" color={user.is_active ? 'error' : 'success'} onClick={() => handleToggle(user)}>{user.is_active ? 'Disable' : 'Enable'}</Button>
                   <Button size="small" color="error" onClick={() => handleDelete(user)}>Delete</Button>
                 </TableCell>
               </TableRow>
@@ -112,7 +111,7 @@ export default function UsersPage() {
           <TextField fullWidth label="Full Name" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} sx={{ mb: 2 }} />
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Role</InputLabel>
-            <Select value={form.role} label="Role" onChange={e => setForm({ ...form, role: e.target.value as any })}>
+            <Select value={form.role} label="Role" onChange={e => setForm({ ...form, role: e.target.value as UserRole })}>
               <MenuItem value="admin">Admin</MenuItem>
               <MenuItem value="vendor_manager">Vendor Manager</MenuItem>
             </Select>

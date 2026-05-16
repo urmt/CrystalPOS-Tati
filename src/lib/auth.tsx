@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
-import { User } from '@types';
+import { User } from '@/types';
 
 interface AuthContextType {
   user: User | null;
@@ -13,24 +13,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function setLoadingComplete() {
+  return { loading: false };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  function handleSession(userId: string) {
+    supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setUser(data as User);
+        }
+      })
+      .finally(() => setLoading(false));
+  }
+
   useEffect(() => {
-    // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        handleSession(session.user.id);
       } else {
         setLoading(false);
       }
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        handleSession(session.user.id);
       } else {
         setUser(null);
         setLoading(false);
@@ -40,41 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (data) {
-        setUser(data as User);
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  async function signIn(email: string, password: string): Promise<{ error: Error | null }> {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error };
+  }
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      return { error };
-    }
-
-    return { error: null };
-  };
-
-  const signOut = async () => {
+  async function signOut() {
     await supabase.auth.signOut();
     setUser(null);
-  };
+  }
 
   return (
     <AuthContext.Provider value={{ user, loading, signIn, signOut }}>

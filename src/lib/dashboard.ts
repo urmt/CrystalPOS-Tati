@@ -1,10 +1,7 @@
 import { Sale, Item, User } from '@/types';
 import { supabase } from '@/lib/supabase';
 
-// =============================================================================
-// getPeriodDates: Helper to get start and end date strings for a given period
-// =============================================================================
-export const getPeriodDates = (period: string) => {
+export function getPeriodDates(period: string): { startStr: string; endStr: string } {
   const now = new Date();
   let start: Date;
   const end = now;
@@ -18,10 +15,7 @@ export const getPeriodDates = (period: string) => {
       start.setHours(0, 0, 0, 0);
       const yesterdayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
       yesterdayEnd.setHours(23, 59, 59, 999);
-      return { 
-        startStr: start.toISOString().split('T')[0], 
-        endStr: yesterdayEnd.toISOString().split('T')[0] 
-      };
+      return { startStr: start.toISOString().split('T')[0], endStr: yesterdayEnd.toISOString().split('T')[0] };
     case 'week':
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
       break;
@@ -39,31 +33,32 @@ export const getPeriodDates = (period: string) => {
     startStr: start.toISOString().split('T')[0],
     endStr: end.toISOString().split('T')[0]
   };
-};
+}
 
-// =============================================================================
-// fetchDashboardStats: Core data fetching logic for the dashboard
-// =============================================================================
-export const fetchDashboardStats = async (period: string) => {
+export async function fetchDashboardStats(period: string): Promise<{ sales: Sale[]; items: Item[]; users: User[] }> {
   const { startStr, endStr } = getPeriodDates(period);
 
   const [salesRes, itemsRes, usersRes] = await Promise.all([
-    supabase.from('sales')
-      .select('*')
-      .gte('sale_date', startStr + 'T00:00:00')
-      .lte('sale_date', endStr + 'T23:59:59')
-      .order('sale_date', { ascending: false }),
+    supabase.from('sales').select('*').gte('sale_date', startStr + 'T00:00:00').lte('sale_date', endStr + 'T23:59:59').order('sale_date', { ascending: false }),
     supabase.from('items').select('*').order('name'),
     supabase.from('users').select('*').order('email'),
   ]);
 
-  if (salesRes.error) throw salesRes.error;
-  if (itemsRes.error) throw itemsRes.error;
-  if (usersRes.error) throw usersRes.error;
+  const results = [
+    { res: salesRes, name: 'sales' },
+    { res: itemsRes, name: 'items' },
+    { res: usersRes, name: 'users' },
+  ];
+
+  for (const { res, name } of results) {
+    if (res.error) {
+      throw new Error(`Failed to fetch ${name}: ${res.error.message}`);
+    }
+  }
 
   return {
     sales: (salesRes.data || []) as Sale[],
     items: (itemsRes.data || []) as Item[],
     users: (usersRes.data || []) as User[]
   };
-};
+}
