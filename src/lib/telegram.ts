@@ -3,8 +3,12 @@
 // Sends error notifications to Systems Manager via Telegram Bot
 // =============================================================================
 
-const TELEGRAM_BOT_TOKEN = '8222563681:AAFbpen6BjgMnviKAKOSGRibqpzYpd8Ggfk';
-const TELEGRAM_CHAT_ID = '+50683598574';
+const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
+
+if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+  console.warn('Telegram environment variables not configured - alerts disabled');
+}
 
 export interface AlertMessage {
   type: 'error' | 'warning' | 'info';
@@ -15,6 +19,11 @@ export interface AlertMessage {
 }
 
 export async function sendTelegramAlert(alert: AlertMessage): Promise<boolean> {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn('Telegram not configured, skipping alert:', alert.title);
+    return false;
+  }
+
   const timestamp = alert.timestamp || new Date().toISOString();
   const text = `
 🚨 *MarketPOS Alert*

@@ -5,39 +5,96 @@
 
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Box, Drawer, List, ListItem, ListItemIcon, ListItemText, Typography, Divider } from '@mui/material';
-import { Dashboard as DashboardIcon, ShoppingCart, Inventory, Assessment, CheckCircle, People, Devices, Settings } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
+import { 
+  Box, Drawer, List, ListItem, ListItemIcon, ListItemText, 
+  Typography, Divider, IconButton, Button, CircularProgress 
+} from '@mui/material';
+import { 
+  Menu as MenuIcon, Logout
+} from '@mui/icons-material';
+import { COLORS, NAV_ITEMS } from '@/lib/constants';
+import { useAuth } from '@/lib/auth';
 
 interface DashboardLayoutProps {
   children: ReactNode;
   currentPage?: string;
+  title?: string;
+  subtitle?: string;
+  actions?: ReactNode;
 }
 
-const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, href: '/' },
-  { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
-  { id: 'inventory', label: 'Inventory', icon: <Inventory />, href: '/inventory' },
-  { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
-  { id: 'todos', label: 'TODOs', icon: <CheckCircle />, href: '/todos' },
-  { id: 'customers', label: 'Customers', icon: <People />, href: '/customers' },
-  { id: 'users', label: 'Users', icon: <People />, href: '/users' },
-  { id: 'devices', label: 'Devices', icon: <Devices />, href: '/devices' },
-  { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
-];
+export default function DashboardLayout({ 
+  children, 
+  currentPage = '', 
+  title,
+  subtitle,
+  actions 
+}: DashboardLayoutProps) {
+  const router = useRouter();
+  const { user, loading, signOut } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(true);
 
-export default function DashboardLayout({ children, currentPage = '' }: DashboardLayoutProps) {
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  const handleLogout = async () => {
+    await signOut();
+    router.push('/login');
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
-      <Drawer variant="permanent" sx={{ width: 240, '& .MuiDrawer-paper': { width: 240, bgcolor: '#6B4C9A', color: 'white' } }}>
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: drawerOpen ? COLORS.drawerWidth : 72,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: drawerOpen ? COLORS.drawerWidth : 72,
+            boxSizing: 'border-box',
+            bgcolor: COLORS.primary,
+            color: 'white',
+            transition: 'width 0.2s',
+            overflowX: 'hidden',
+          },
+        }}
+      >
         <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'white' }}>
-          <Typography variant="h6" fontWeight="bold"><Box component="span" sx={{ color: '#D4AF37' }}>Mark</Box><Box component="span" sx={{ color: '#2E7D32' }}>et</Box><Box component="span" sx={{ color: '#D4AF37' }}>POS</Box></Typography>
+          {drawerOpen && (
+            <Typography variant="h6" fontWeight="bold">
+              <Box component="span" sx={{ color: '#D4AF37' }}>Mark</Box>
+              <Box component="span" sx={{ color: '#2E7D32' }}>et</Box>
+              <Box component="span" sx={{ color: '#D4AF37' }}>POS</Box>
+            </Typography>
+          )}
+          <IconButton onClick={() => setDrawerOpen(!drawerOpen)} sx={{ color: 'white' }}>
+            <MenuIcon />
+          </IconButton>
         </Box>
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
         <List>
-          {navItems.map((item) => {
-            const isActive = currentPage === '' ? item.href === '/' : item.href.replace('/', '') === currentPage;
+          {NAV_ITEMS.map((item) => {
+            const isActive = currentPage === '' 
+              ? item.href === '/' 
+              : item.href.replace('/', '') === currentPage;
             return (
               <ListItem 
                 key={item.id} 
@@ -52,15 +109,57 @@ export default function DashboardLayout({ children, currentPage = '' }: Dashboar
                   '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
                 }}
               >
-                <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
+                <ListItemIcon sx={{ color: 'white', minWidth: drawerOpen ? 40 : 'auto' }}>
+                  {item.icon}
+                </ListItemIcon>
+                {drawerOpen && <ListItemText primary={item.label} />}
               </ListItem>
             );
           })}
         </List>
       </Drawer>
-      <Box sx={{ flex: 1, p: 3, overflow: 'auto' }}>
-        {children}
+      
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
+        {/* Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 3, 
+          bgcolor: 'white', 
+          p: 2, 
+          borderRadius: 2 
+        }}>
+          <Box>
+            {title && (
+              <Typography variant="h4" fontWeight="bold" sx={{ color: COLORS.primary }}>
+                {title}
+              </Typography>
+            )}
+            {subtitle && (
+              <Typography variant="body2" color="text.secondary">
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {actions}
+            <Button 
+              variant="outlined" 
+              color="error" 
+              onClick={handleLogout} 
+              startIcon={<Logout />}
+              size="small"
+            >
+              Logout
+            </Button>
+          </Box>
+        </Box>
+        
+        {/* Content */}
+        <Box sx={{ p: 3, pt: 0 }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );

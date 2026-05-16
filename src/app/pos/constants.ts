@@ -1,13 +1,8 @@
+import { COLORS as SHARED_COLORS } from '@/lib/constants';
+
 export const COLORS = {
-  primary: '#6B4C9A',
-  primaryDark: '#4a3570',
-  secondary: '#D4AF37',
-  accent: '#20B2AA',
-  success: '#228B22',
-  error: '#DC3545',
+  ...SHARED_COLORS,
   warning: '#FF9800',
-  darkText: '#1a1a1a',
-  lightText: '#333333',
 };
 
 export const CRYSTAL_THEME = `

@@ -28,6 +28,9 @@ export const getPeriodDates = (period: string) => {
     case 'month':
       start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
       break;
+    case 'year':
+      start = new Date(now.getFullYear(), 0, 1);
+      break;
     default:
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }

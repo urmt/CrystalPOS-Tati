@@ -9,6 +9,7 @@ import { Settings as SettingsIcon, Business, Category, Payment, Add, Delete, Men
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Category as CategoryType } from '@/types';
+import DashboardLayout from '@/components/DashboardLayout';
 
 export default function SettingsPage() {
   const [tab, setTab] = useState(0);
@@ -119,27 +120,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
-      <Drawer variant="permanent" sx={{ width: 240, '& .MuiDrawer-paper': { width: 240, bgcolor: '#6B4C9A', color: 'white' } }}>
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'white' }}>
-          <Typography variant="h6" fontWeight="bold"><Box component="span" sx={{ color: '#D4AF37' }}>Mark</Box><Box component="span" sx={{ color: '#2E7D32' }}>et</Box><Box component="span" sx={{ color: '#D4AF37' }}>POS</Box></Typography>
-        </Box>
-        <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-        <List>
-          <ListItem component="a" href="/" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Dashboard" /></ListItem>
-          <ListItem component="a" href="/sales" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Sales" /></ListItem>
-          <ListItem component="a" href="/inventory" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Inventory" /></ListItem>
-          <ListItem component="a" href="/reports" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Reports" /></ListItem>
-          <ListItem component="a" href="/todos" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="TODOs" /></ListItem>
-          <ListItem component="a" href="/customers" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Customers" /></ListItem>
-          <ListItem component="a" href="/users" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Users" /></ListItem>
-          <ListItem component="a" href="/devices" sx={{ bgcolor: 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Devices" /></ListItem>
-          <ListItem component="a" href="/settings" sx={{ bgcolor: 'rgba(255,255,255,0.15)', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemText primary="Settings" /></ListItem>
-        </List>
-      </Drawer>
-
-      <Box sx={{ flex: 1, p: 3 }}>
-        <Typography variant="h4" fontWeight="bold" sx={{ color: '#6B4C9A', mb: 3 }}>Configuración</Typography>
+    <DashboardLayout currentPage="settings" title="Configuración">
 
         <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3 }}>
           <Tab icon={<Business />} label="Negocio" />
@@ -214,11 +195,10 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         )}
-      </Box>
 
-      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
-      </Snackbar>
-    </Box>
+        <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+        </Snackbar>
+    </DashboardLayout>
   );
 }

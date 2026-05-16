@@ -11,26 +11,13 @@ Box, Card, CardContent, Typography, Button, IconButton, TextField,
 import Grid from '@mui/material/Grid2';
 import { 
   Inventory as InventoryIcon, Add, Edit, Delete, DeleteSweep, Download, Menu as MenuIcon, 
-  Search, Refresh, Image as ImageIcon, Category as CategoryIcon,
-  Dashboard as DashboardIcon, ShoppingCart, People, Settings, Assessment, Devices,
-  Save, CheckCircle
+  Search, Refresh, Image as ImageIcon
 } from '@mui/icons-material';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { Item, Category as CategoryType, Subcategory } from '@/types';
 import { formatCurrency, getStockStatus, getStockStatusLabel } from '@/utils/format';
-
-const COLORS = { primary: '#6B4C9A', drawerWidth: 240 };
-const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, href: '/' },
-  { id: 'sales', label: 'Sales', icon: <ShoppingCart />, href: '/sales' },
-  { id: 'inventory', label: 'Inventory', icon: <InventoryIcon />, href: '/inventory' },
-  { id: 'reports', label: 'Reports', icon: <Assessment />, href: '/reports' },
-  { id: 'todos', label: 'TODOs', icon: <CheckCircle />, href: '/todos' },
-  { id: 'customers', label: 'Customers', icon: <People />, href: '/customers' },
-  { id: 'users', label: 'Users', icon: <People />, href: '/users' },
-  { id: 'devices', label: 'Devices', icon: <Devices />, href: '/devices' },
-  { id: 'settings', label: 'Settings', icon: <Settings />, href: '/settings' },
-];
+import { COLORS } from '@/lib/constants';
+import DashboardLayout from '@/components/DashboardLayout';
 
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -295,28 +282,18 @@ export default function InventoryPage() {
     }
   };
 
-  return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F7F5F3' }}>
-      <Drawer variant="permanent" sx={{ width: drawerOpen ? COLORS.drawerWidth : 72, '& .MuiDrawer-paper': { width: drawerOpen ? COLORS.drawerWidth : 72, bgcolor: COLORS.primary, color: 'white', transition: 'width 0.2s' } }}>
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'white' }}>
-          {drawerOpen && <Typography variant="h6" sx={{ fontWeight: 'bold' }}>CrystalPOS</Typography>}
-          <IconButton onClick={() => setDrawerOpen(!drawerOpen)} sx={{ color: 'white' }}><MenuIcon /></IconButton>
-        </Box>
-        <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-        <List>{navItems.map(item => <ListItem key={item.id} component="a" href={item.href} sx={{ bgcolor: item.href === '/inventory' ? 'rgba(255,255,255,0.15)' : 'transparent', cursor: 'pointer', borderRadius: 1, mx: 1 }}><ListItemIcon sx={{ color: 'white', minWidth: drawerOpen ? 40 : 'auto' }}>{item.icon}</ListItemIcon>{drawerOpen && <ListItemText primary={item.label} />}</ListItem>)}</List>
-      </Drawer>
+  const actions = (
+    <>
+      <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>Export</Button>
+      <Button variant="outlined" color="error" startIcon={<DeleteSweep />} onClick={handleDeleteAllContents}>Delete All</Button>
+      <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', cost_per_gram: 0, price_crc: 0, pricing_type: 'per_gram', fixed_price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', image_url: '', description: '' }); setDialogOpen(true); }}>
+        Add Item
+      </Button>
+    </>
+  );
 
-      <Box component="main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', color: COLORS.primary }}>Inventory</Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>Export</Button>
-            <Button variant="outlined" color="error" startIcon={<DeleteSweep />} onClick={handleDeleteAllContents}>Delete All Contents</Button>
-            <Button variant="contained" startIcon={<Add />} onClick={() => { setEditItem(null); setForm({ name: '', sku: '', cost_per_gram: 0, price_crc: 0, pricing_type: 'per_gram', fixed_price_crc: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', image_url: '', description: '' }); setDialogOpen(true); }}>
-              Add Item
-            </Button>
-          </Box>
-        </Box>
+  return (
+    <DashboardLayout currentPage="inventory" title="Inventory" actions={actions}>
 
         {/* Tabs */}
         <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
@@ -623,6 +600,6 @@ export default function InventoryPage() {
           <Button variant="contained" onClick={handleSubcategorySave}>Save</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </DashboardLayout>
   );
 }
