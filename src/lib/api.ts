@@ -90,7 +90,7 @@ export const api = {
   },
 };
 
-export async function calculateSalesByCategory(sales: Sale[], items: Item[], categories: Category[]) {
+export function calculateSalesByCategory(sales: Sale[], items: Item[], categories: Category[]) {
   const catMap: Record<string, { name: string; qty: number; revenue: number }> = {};
   
   categories.forEach(c => { catMap[c.id] = { name: c.name, qty: 0, revenue: 0 }; });
@@ -108,7 +108,7 @@ export async function calculateSalesByCategory(sales: Sale[], items: Item[], cat
   return Object.values(catMap).filter(c => c.qty > 0).sort((a, b) => b.revenue - a.revenue);
 }
 
-export async function calculateSalesBySubcategory(sales: Sale[], items: Item[], subcategories: Subcategory[], categories: Category[]) {
+export function calculateSalesBySubcategory(sales: Sale[], items: Item[], subcategories: Subcategory[], categories: Category[]) {
   const subMap: Record<string, { name: string; categoryId: string; categoryName: string; qty: number; revenue: number }> = {};
   const catMap: Record<string, string> = {};
   categories.forEach(c => { catMap[c.id] = c.name; });
@@ -130,7 +130,7 @@ export async function calculateSalesBySubcategory(sales: Sale[], items: Item[], 
   return Object.values(subMap).filter(s => s.qty > 0).sort((a, b) => b.revenue - a.revenue);
 }
 
-export async function calculateSalesByMineralType(sales: Sale[], items: Item[], subcategories: Subcategory[], categories: Category[]) {
+export function calculateSalesByMineralType(sales: Sale[], items: Item[], subcategories: Subcategory[], categories: Category[]) {
   const mineralMap: Record<string, { name: string; mineralType: string; qty: number; revenue: number; categories: Set<string> }> = {};
   const catMap: Record<string, string> = {};
   categories.forEach(c => { catMap[c.id] = c.name; });
