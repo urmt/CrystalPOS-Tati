@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   Box, Card, CardContent, Typography, Button, TextField, Table, TableBody, 
-  TableCell, TableContainer, TableHead, TableRow, Paper, Chip, Grid, 
+  TableCell, TableContainer, TableHead, TableRow, Paper, Chip, 
   LinearProgress, MenuItem, FormControl, InputLabel, Select
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import { Download, Refresh } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { Sale } from '@/types';

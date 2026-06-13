@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { Sale, Item, User, Category, Subcategory, Customer, Todo } from '@/types';
+import { Sale, Item, User, Category, Subcategory, SubSubcategory, Customer, Todo } from '@/types';
 
 export const api = {
   async fetchSales(dateFrom?: string, dateTo?: string, limit = 500) {
@@ -83,6 +83,25 @@ export const api = {
     return data as Subcategory;
   },
 
+  async fetchSubSubcategories(activeOnly = true) {
+    let query = supabase.from('sub_subcategories').select('*').order('name');
+    if (activeOnly) query = query.eq('is_active', true);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data as SubSubcategory[];
+  },
+
+  async createSubSubcategory(subSubcategory: Partial<SubSubcategory>) {
+    const { data, error } = await supabase.from('sub_subcategories').insert(subSubcategory).select().single();
+    if (error) throw error;
+    return data as SubSubcategory;
+  },
+
+  async deleteSubSubcategory(id: string) {
+    const { error } = await supabase.from('sub_subcategories').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   async createSale(sale: Partial<Sale>) {
     const { data, error } = await supabase.from('sales').insert(sale).select().single();
     if (error) throw error;
@@ -162,4 +181,146 @@ export function calculateSalesByMineralType(sales: Sale[], items: Item[], subcat
     .filter(m => m.qty > 0)
     .map(m => ({ ...m, categories: Array.from(m.categories).join(', ') }))
     .sort((a, b) => b.revenue - a.revenue);
+}
+
+export function calculateSalesBySubSubcategory(
+  sales: Sale[], items: Item[], subSubcategories: SubSubcategory[], subcategories: Subcategory[], categories: Category[]
+) {
+  const catMap: Record<string, string> = {};
+  const subMap: Record<string, string> = {};
+  categories.forEach(c => { catMap[c.id] = c.name; });
+  subcategories.forEach(s => { subMap[s.id] = s.name; });
+
+  const ssMap: Record<string, {
+    name: string; subcategoryName: string; categoryName: string;
+    qty: number; revenue: number; unitCount: number;
+  }> = {};
+
+  subSubcategories.forEach(ss => {
+    ssMap[ss.id] = {
+      name: ss.name,
+      subcategoryName: subMap[ss.subcategory_id] || 'Unknown',
+      categoryName: 'Unknown',
+      qty: 0, revenue: 0, unitCount: 0,
+    };
+    const parentSub = subcategories.find(s => s.id === ss.subcategory_id);
+    if (parentSub) {
+      ssMap[ss.id].categoryName = catMap[parentSub.category_id] || 'Unknown';
+    }
+  });
+
+  sales.forEach(sale => {
+    (sale.items_sold || []).forEach(sold => {
+      const item = items.find(i => i.id === sold.item_id);
+      if (item?.sub_subcategory_id && ssMap[item.sub_subcategory_id]) {
+        ssMap[item.sub_subcategory_id].qty += sold.qty_grams || 0;
+        ssMap[item.sub_subcategory_id].revenue += sold.price || 0;
+        ssMap[item.sub_subcategory_id].unitCount += 1;
+      }
+    });
+  });
+
+  return Object.values(ssMap).filter(s => s.qty > 0 || s.unitCount > 0).sort((a, b) => b.revenue - a.revenue);
+}
+
+export function calculateSalesByMineralTypeCrossCategory(
+  sales: Sale[], items: Item[], subcategories: Subcategory[]
+) {
+  const mineralAgg: Record<string, { name: string; qty: number; revenue: number; unitCount: number }> = {};
+
+  subcategories.forEach(s => {
+    if (!mineralAgg[s.name]) {
+      mineralAgg[s.name] = { name: s.name, qty: 0, revenue: 0, unitCount: 0 };
+    }
+  });
+
+  sales.forEach(sale => {
+    (sale.items_sold || []).forEach(sold => {
+      const item = items.find(i => i.id === sold.item_id);
+      if (item?.subcategory_id) {
+        const sub = subcategories.find(s => s.id === item.subcategory_id);
+        if (sub && mineralAgg[sub.name]) {
+          mineralAgg[sub.name].qty += sold.qty_grams || 0;
+          mineralAgg[sub.name].revenue += sold.price || 0;
+          mineralAgg[sub.name].unitCount += 1;
+        }
+      }
+    });
+  });
+
+  const totalRevenue = Object.values(mineralAgg).reduce((sum, m) => sum + m.revenue, 0);
+
+  return Object.values(mineralAgg)
+    .filter(m => m.qty > 0 || m.unitCount > 0)
+    .map(m => ({
+      ...m,
+      percentage: totalRevenue > 0 ? ((m.revenue / totalRevenue) * 100).toFixed(1) : '0',
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
+export function calculateSalesBySizeCrossCategory(
+  sales: Sale[], items: Item[], subSubcategories: SubSubcategory[]
+) {
+  const sizeAgg: Record<string, { name: string; qty: number; revenue: number; unitCount: number }> = {};
+
+  subSubcategories.forEach(ss => {
+    if (!sizeAgg[ss.name]) {
+      sizeAgg[ss.name] = { name: ss.name, qty: 0, revenue: 0, unitCount: 0 };
+    }
+  });
+
+  sales.forEach(sale => {
+    (sale.items_sold || []).forEach(sold => {
+      const item = items.find(i => i.id === sold.item_id);
+      if (item?.sub_subcategory_id) {
+        const ss = subSubcategories.find(s => s.id === item.sub_subcategory_id);
+        if (ss && sizeAgg[ss.name]) {
+          sizeAgg[ss.name].qty += sold.qty_grams || 0;
+          sizeAgg[ss.name].revenue += sold.price || 0;
+          sizeAgg[ss.name].unitCount += 1;
+        }
+      }
+    });
+  });
+
+  const totalRevenue = Object.values(sizeAgg).reduce((sum, s) => sum + s.revenue, 0);
+
+  return Object.values(sizeAgg)
+    .filter(s => s.qty > 0 || s.unitCount > 0)
+    .map(s => ({
+      ...s,
+      percentage: totalRevenue > 0 ? ((s.revenue / totalRevenue) * 100).toFixed(1) : '0',
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
+export function calculateChessBoardSales(sales: Sale[], items: Item[], categories: Category[]) {
+  const chessCat = categories.find(c => c.name === 'Tournament Smart Chess Board');
+  if (!chessCat) return { totalBoards: 0, totalRevenue: 0, crystalTypes: [] as { name: string; count: number }[] };
+
+  let totalBoards = 0;
+  let totalRevenue = 0;
+  const typeCounts: Record<string, number> = {};
+
+  sales.forEach(sale => {
+    (sale.items_sold || []).forEach(sold => {
+      const item = items.find(i => i.id === sold.item_id);
+      if (item?.category_id === chessCat.id) {
+        totalBoards += 1;
+        totalRevenue += sold.price || 0;
+        if (sold.chess_crystal_types) {
+          sold.chess_crystal_types.forEach(t => {
+            typeCounts[t] = (typeCounts[t] || 0) + 1;
+          });
+        }
+      }
+    });
+  });
+
+  const crystalTypes = Object.entries(typeCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return { totalBoards, totalRevenue, crystalTypes };
 }

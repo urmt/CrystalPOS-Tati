@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { supabase } from '@/lib/supabase';
 import { logErrorAndAlert } from '@/lib/telegram';
-import { Item, Category as CategoryType, Subcategory, Todo } from '@/types';
+import { Item, Category as CategoryType, Subcategory, SubSubcategory, Todo } from '@/types';
 import { formatCurrency } from '@/utils/format';
 import { COLORS, CRYSTAL_THEME } from './constants';
 import { getStockWarning } from './utils';
@@ -50,9 +50,11 @@ export default function POSPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<CategoryType[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [subSubcategories, setSubSubcategories] = useState<SubSubcategory[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
+  const [selectedSubSubcategory, setSelectedSubSubcategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -71,9 +73,10 @@ export default function POSPage() {
 
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItem, setNewItem] = useState({
-name: '', sku: '', price_crc: 0, cost_per_gram: 0,
-    current_weight_grams: 0, min_threshold_grams: 100,
-    category_id: '', subcategory_id: '', description: '', image_url: ''
+    name: '', sku: '', price_crc: 0, cost_per_gram: 0,
+    current_weight_grams: 0, stock_unit: 0, min_threshold_grams: 100,
+    category_id: '', subcategory_id: '', sub_subcategory_id: '', description: '', image_url: '',
+    pricing_type: 'per_gram' as 'per_gram' | 'fixed', fixed_price_crc: 0
   });
   const [savingItem, setSavingItem] = useState(false);
 
@@ -182,14 +185,15 @@ name: '', sku: '', price_crc: 0, cost_per_gram: 0,
         setItems(data.items || []);
         setCategories(data.categories || []);
         setSubcategories(data.subcategories || []);
+        setSubSubcategories(data.subSubcategories || []);
         setLastSync(data.lastSync);
       }
     } catch (e) { console.error('Load offline error:', e); }
   }, []);
 
-  const saveOfflineData = (itms: Item[], cats: CategoryType[], subcats: Subcategory[]) => {
+  const saveOfflineData = (itms: Item[], cats: CategoryType[], subcats: Subcategory[], sscats: SubSubcategory[]) => {
     try {
-      const data = { items: itms, categories: cats, subcategories: subcats, lastSync: new Date().toISOString() };
+      const data = { items: itms, categories: cats, subcategories: subcats, subSubcategories: sscats, lastSync: new Date().toISOString() };
       localStorage.setItem(OFFLINE_KEY, JSON.stringify(data));
       setLastSync(data.lastSync);
     } catch (e) { console.error('Save offline error:', e); }
@@ -198,18 +202,20 @@ name: '', sku: '', price_crc: 0, cost_per_gram: 0,
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [itemsRes, catsRes, subcatsRes] = await Promise.all([
+      const [itemsRes, catsRes, subcatsRes, ssRes] = await Promise.all([
         supabase.from('items').select('*').eq('is_active', true).order('name'),
         supabase.from('categories').select('*').eq('is_active', true).order('display_order'),
-        supabase.from('subcategories').select('*').eq('is_active', true).order('display_order')
+        supabase.from('subcategories').select('*').eq('is_active', true).order('display_order'),
+        supabase.from('sub_subcategories').select('*').eq('is_active', true).order('display_order')
       ]);
       
       if (itemsRes.data) {
         setItems(itemsRes.data);
-        saveOfflineData(itemsRes.data, catsRes.data || [], subcatsRes.data || []);
+        saveOfflineData(itemsRes.data, catsRes.data || [], subcatsRes.data || [], ssRes.data || []);
       }
       if (catsRes.data) setCategories(catsRes.data);
       if (subcatsRes.data) setSubcategories(subcatsRes.data);
+      if (ssRes.data) setSubSubcategories(ssRes.data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Fetch failed';
       console.error('Fetch error:', err);
@@ -599,7 +605,7 @@ const handleGallerySwipe = (direction: 'prev' | 'next') => {
         setCustomerPhone(''); setCustomerName(''); setWantReceipt(false);
         await fetchData();
         return true;
-      } catch (err) { console.error('Online sale failed:', err); }
+      } catch (err) { console.error('Online sale failed:', err); return false; }
     }
     if (isOffline) {
       try {
@@ -611,6 +617,7 @@ const handleGallerySwipe = (direction: 'prev' | 'next') => {
         return true;
       } catch (err) { return false; }
     }
+    return false;
   };
 
   const handleCheckout = async () => {
@@ -629,14 +636,25 @@ const handleGallerySwipe = (direction: 'prev' | 'next') => {
     try {
       if (isOnline) {
         const sku = newItem.sku || `ITEM-${Date.now()}`;
-        const { error } = await supabase.from('items').insert({ ...newItem, sku, is_active: true });
+        const { error } = await supabase.from('items').insert({ 
+          name: newItem.name, sku, category_id: newItem.category_id, 
+          subcategory_id: newItem.subcategory_id || null,
+          sub_subcategory_id: newItem.sub_subcategory_id || null,
+          price_crc: newItem.price_crc, cost_per_gram: newItem.cost_per_gram,
+          current_weight_grams: newItem.current_weight_grams, 
+          stock_unit: newItem.stock_unit,
+          min_threshold_grams: newItem.min_threshold_grams,
+          pricing_type: newItem.pricing_type, fixed_price_crc: newItem.fixed_price_crc,
+          description: newItem.description || null, image_url: newItem.image_url || null,
+          is_active: true 
+        });
         if (error) throw error;
         await fetchData();
       } else {
         alert('Cannot add items while offline.');
       }
       setShowAddItem(false);
-      setNewItem({ name: '', sku: '', price_crc: 0, cost_per_gram: 0, current_weight_grams: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', description: '', image_url: '' });
+      setNewItem({ name: '', sku: '', price_crc: 0, cost_per_gram: 0, current_weight_grams: 0, stock_unit: 0, min_threshold_grams: 100, category_id: '', subcategory_id: '', sub_subcategory_id: '', description: '', image_url: '', pricing_type: 'per_gram', fixed_price_crc: 0 });
     } catch (err) {
       console.error('Save item error:', err);
       alert('Failed to save item');
@@ -691,6 +709,7 @@ const handleGallerySwipe = (direction: 'prev' | 'next') => {
   };
 
   const getSubcategoriesForCategory = (catId: string) => subcategories.filter(s => s.category_id === catId);
+  const getSubSubcategoriesForSubcategory = (subId: string) => subSubcategories.filter(ss => ss.subcategory_id === subId);
 
   const rawTotal = cart.reduce((sum, c) => {
     const manualP = (c as any).manualPrice;
@@ -716,8 +735,9 @@ const handleGallerySwipe = (direction: 'prev' | 'next') => {
   const filteredItems = items.filter(item => {
     const matchesCat = selectedCategory === 'all' || item.category_id === selectedCategory;
     const matchesSub = selectedSubcategory === 'all' || item.subcategory_id === selectedSubcategory;
+    const matchesSS = selectedSubSubcategory === 'all' || (item as any).sub_subcategory_id === selectedSubSubcategory;
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesSub && matchesSearch;
+    return matchesCat && matchesSub && matchesSS && matchesSearch;
   });
 
   const handleOpenNumberPad = (type: 'phone' | 'name', currentVal: string) => {
@@ -950,12 +970,27 @@ variant="outlined"
             {/* Subcategories as dropdown */}
             {selectedCategory !== 'all' && getSubcategoriesForCategory(selectedCategory).length > 0 && (
               <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-                <Select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)} sx={{ bgcolor: 'white' }}>
+                <Select value={selectedSubcategory} onChange={(e) => { setSelectedSubcategory(e.target.value); setSelectedSubSubcategory('all'); }} sx={{ bgcolor: 'white' }}>
                   <MenuItem value="all">Todas las subcategorías</MenuItem>
                   {getSubcategoriesForCategory(selectedCategory).map(sub => {
                     const subDisplay = (sub as any).name_es ? (sub.name.includes('/') ? sub.name : `${sub.name} / ${(sub as any).name_es}`) : sub.name;
                     return (
                       <MenuItem key={sub.id} value={sub.id}>{subDisplay}</MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            )}
+
+            {/* Sub-subcategories as dropdown */}
+            {selectedSubcategory !== 'all' && getSubSubcategoriesForSubcategory(selectedSubcategory).length > 0 && (
+              <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                <Select value={selectedSubSubcategory} onChange={(e) => setSelectedSubSubcategory(e.target.value)} sx={{ bgcolor: 'white' }}>
+                  <MenuItem value="all">Todas las tallas</MenuItem>
+                  {getSubSubcategoriesForSubcategory(selectedSubcategory).map(ss => {
+                    const ssDisplay = ss.name_es ? (ss.name.includes('/') ? ss.name : `${ss.name} / ${ss.name_es}`) : ss.name;
+                    return (
+                      <MenuItem key={ss.id} value={ss.id}>{ssDisplay}</MenuItem>
                     );
                   })}
                 </Select>
@@ -1448,11 +1483,31 @@ variant="outlined"
           </FormControl>
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Subcategoría / Subcategory</InputLabel>
-            <Select value={newItem.subcategory_id} label="Subcategoría / Subcategory" onChange={(e) => setNewItem({ ...newItem, subcategory_id: e.target.value })}>
+            <Select value={newItem.subcategory_id} label="Subcategoría / Subcategory" onChange={(e) => setNewItem({ ...newItem, subcategory_id: e.target.value, sub_subcategory_id: '' })}>
               <MenuItem value="">Ninguno / None</MenuItem>
               {newItem.category_id && getSubcategoriesForCategory(newItem.category_id).map(sub => <MenuItem key={sub.id} value={sub.id}>{sub.name}</MenuItem>)}
             </Select>
           </FormControl>
+          {newItem.subcategory_id && getSubSubcategoriesForSubcategory(newItem.subcategory_id).length > 0 && (
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Sub-subcategoría / Size</InputLabel>
+              <Select value={newItem.sub_subcategory_id} label="Sub-subcategoría / Size" onChange={(e) => setNewItem({ ...newItem, sub_subcategory_id: e.target.value })}>
+                <MenuItem value="">Ninguno / None</MenuItem>
+                {getSubSubcategoriesForSubcategory(newItem.subcategory_id).map(ss => <MenuItem key={ss.id} value={ss.id}>{ss.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+          )}
+          <FormControl fullWidth sx={{ mb: 2, bgcolor: 'white' }}>
+            <InputLabel>Tipo de Precio / Pricing Type</InputLabel>
+            <Select value={newItem.pricing_type} label="Tipo de Precio / Pricing Type" onChange={(e) => setNewItem({ ...newItem, pricing_type: e.target.value as 'per_gram' | 'fixed' })}>
+              <MenuItem value="per_gram">Por Gramo / Per Gram</MenuItem>
+              <MenuItem value="fixed">Precio Fijo / Fixed Price</MenuItem>
+            </Select>
+          </FormControl>
+          {newItem.pricing_type === 'fixed' && (
+            <TextField fullWidth label="Precio Fijo (CRC) / Fixed Price" type="number" value={newItem.fixed_price_crc} onChange={(e) => setNewItem({ ...newItem, fixed_price_crc: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
+          )}
+          <TextField fullWidth label="Stock Unidades / Stock Units" type="number" value={newItem.stock_unit} onChange={(e) => setNewItem({ ...newItem, stock_unit: Number(e.target.value) })} sx={{ mb: 2, bgcolor: 'white' }} />
 <TextField fullWidth label="Descripción / Description" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} multiline rows={2} sx={{ bgcolor: 'white' }} />
         </DialogContent>
         <DialogActions>

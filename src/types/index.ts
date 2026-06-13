@@ -41,6 +41,19 @@ export interface Subcategory {
   updated_at: string;
 }
 
+export interface SubSubcategory {
+  id: string;
+  subcategory_id: string;
+  name: string;
+  name_es: string | null;
+  description: string | null;
+  description_es: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Item {
   id: string;
   sku: string;
@@ -48,12 +61,14 @@ export interface Item {
   name_es: string | null;
   category_id: string | null;
   subcategory_id: string | null;
+  sub_subcategory_id: string | null;
   description: string | null;
   description_es: string | null;
   pricing_type: 'per_gram' | 'fixed';
   price_crc: number;
   fixed_price_crc: number;
   current_weight_grams: number;
+  stock_unit: number;
   min_threshold_grams: number;
   depletion_rate_grams_per_day: number;
   image_url: string | null;
@@ -76,7 +91,7 @@ export interface CartItem {
 export interface Sale {
   id: string;
   sale_date: string;
-  items_sold: { item_id: string; sku: string; name: string; qty_grams: number; price: number }[] | null;
+  items_sold: { item_id: string; sku: string; name: string; qty_grams: number; price: number; chess_crystal_types?: string[] }[] | null;
   subtotal_crc: number;
   discount_crc: number;
   tax_crc: number;

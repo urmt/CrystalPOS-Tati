@@ -21,18 +21,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  function handleSession(userId: string) {
-    supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setUser(data as User);
-        }
-      })
-      .finally(() => setLoading(false));
+  async function handleSession(userId: string) {
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (data) {
+        setUser(data as User);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {

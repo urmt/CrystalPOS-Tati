@@ -2,16 +2,17 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { 
-  Box, Typography, Card, CardContent, Grid, Paper, 
+  Box, Typography, Card, CardContent, Paper, 
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Button, Tabs, Tab, Chip, Alert, Snackbar
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import { Assessment as AssessmentIcon, Download, Info } from '@mui/icons-material';
-import { api, calculateSalesByCategory, calculateSalesBySubcategory, calculateSalesByMineralType } from '@/lib/api';
+import { api, calculateSalesByCategory, calculateSalesBySubcategory, calculateSalesByMineralType, calculateSalesBySubSubcategory, calculateSalesByMineralTypeCrossCategory, calculateSalesBySizeCrossCategory, calculateChessBoardSales } from '@/lib/api';
 import { formatCurrency } from '@/utils/format';
 import { COLORS } from '@/lib/constants';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Sale, Item, Category, Subcategory } from '@/types';
+import { Sale, Item, Category, Subcategory, SubSubcategory } from '@/types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -47,12 +48,17 @@ export default function ReportsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [subSubcategories, setSubSubcategories] = useState<SubSubcategory[]>([]);
   
   const [salesSummary, setSalesSummary] = useState<SalesSummary>({ revenue: 0, count: 0, avgSale: 0, cogs: 0, grossProfit: 0 });
   const [paymentBreakdown, setPaymentBreakdown] = useState<Record<string, number>>({});
   const [salesByCategory, setSalesByCategory] = useState<{ name: string; qty: number; revenue: number }[]>([]);
   const [salesBySubcategory, setSalesBySubcategory] = useState<{ name: string; categoryId: string; categoryName: string; qty: number; revenue: number }[]>([]);
   const [mineralTypeSales, setMineralTypeSales] = useState<{ name: string; mineralType: string; qty: number; revenue: number; categories: string }[]>([]);
+  const [salesBySubSubcategory, setSalesBySubSubcategory] = useState<{ name: string; subcategoryName: string; categoryName: string; qty: number; revenue: number; unitCount: number }[]>([]);
+  const [mineralTypeCrossCategory, setMineralTypeCrossCategory] = useState<{ name: string; qty: number; revenue: number; unitCount: number; percentage: string }[]>([]);
+  const [sizeCrossCategory, setSizeCrossCategory] = useState<{ name: string; qty: number; revenue: number; unitCount: number; percentage: string }[]>([]);
+  const [chessBoardSales, setChessBoardSales] = useState<{ totalBoards: number; totalRevenue: number; crystalTypes: { name: string; count: number }[] }>({ totalBoards: 0, totalRevenue: 0, crystalTypes: [] });
   const [topItems, setTopItems] = useState<{ id: string; name: string; qty: number; revenue: number; cost: number }[]>([]);
   const [lowStockItems, setLowStockItems] = useState<(Item & { daysLeft: number })[]>([]);
 
@@ -62,19 +68,21 @@ export default function ReportsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [salesData, itemsData, catsData, subsData] = await Promise.all([
+      const [salesData, itemsData, catsData, subsData, ssData] = await Promise.all([
         api.fetchSales(dateFrom, dateTo, 1000),
         api.fetchItems({ isActive: true }),
         api.fetchCategories(true),
         api.fetchSubcategories(true),
+        api.fetchSubSubcategories(true),
       ]);
       
       setSales(salesData || []);
       setItems(itemsData || []);
       setCategories(catsData || []);
       setSubcategories(subsData || []);
+      setSubSubcategories(ssData || []);
       
-      calculateMetrics(salesData || [], itemsData || []);
+      calculateMetrics(salesData || [], itemsData || [], ssData || []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to fetch data';
       setError(msg);
@@ -84,7 +92,7 @@ export default function ReportsPage() {
     }
   };
 
-  const calculateMetrics = (salesData: Sale[], itemsData: Item[]) => {
+  const calculateMetrics = (salesData: Sale[], itemsData: Item[], ssData: SubSubcategory[]) => {
     const totalRevenue = salesData.reduce((sum, s) => sum + (s.total_crc || 0), 0);
     const count = salesData.length;
     
@@ -133,6 +141,18 @@ export default function ReportsPage() {
     const byMineralType = calculateSalesByMineralType(salesData, itemsData, subcategories, categories);
     setMineralTypeSales(byMineralType);
     
+    const bySubSub = calculateSalesBySubSubcategory(salesData, itemsData, ssData, subcategories, categories);
+    setSalesBySubSubcategory(bySubSub);
+    
+    const mineralCross = calculateSalesByMineralTypeCrossCategory(salesData, itemsData, subcategories);
+    setMineralTypeCrossCategory(mineralCross);
+    
+    const sizeCross = calculateSalesBySizeCrossCategory(salesData, itemsData, ssData);
+    setSizeCrossCategory(sizeCross);
+    
+    const chess = calculateChessBoardSales(salesData, itemsData, categories);
+    setChessBoardSales(chess);
+    
     const top = Object.values(itemSalesMap)
       .map((data, idx) => ({ id: String(idx), ...data }))
       .sort((a, b) => b.revenue - a.revenue)
@@ -140,7 +160,7 @@ export default function ReportsPage() {
     setTopItems(top);
     
     const lowStock = itemsData
-      .filter(i => i.is_active && (i.current_weight_grams || 0) > 0 && (i.current_weight_grams || 0) < (i.min_threshold_grams || 100))
+      .filter(i => i.is_active && ((i.pricing_type === 'per_gram' && (i.current_weight_grams || 0) > 0 && (i.current_weight_grams || 0) < (i.min_threshold_grams || 100)) || (i.pricing_type === 'fixed' && (i.stock_unit || 0) > 0 && (i.stock_unit || 0) < (i.min_threshold_grams || 5))))
       .map(item => {
         const depletion = item.depletion_rate_grams_per_day || 0;
         const daysLeft = depletion > 0 ? Math.round((item.current_weight_grams || 0) / depletion) : 999;
@@ -168,6 +188,29 @@ export default function ReportsPage() {
       mineralTypeSales.forEach(m => {
         csv += `${m.mineralType},${m.categories},${m.qty},${m.revenue}\n`;
       });
+    } else if (type === 'subsubcategories') {
+      csv = 'Sub-subcategory,Subcategory,Category,Quantity (g),Revenue,Unit Count\n';
+      salesBySubSubcategory.forEach(ss => {
+        csv += `${ss.name},${ss.subcategoryName},${ss.categoryName},${ss.qty},${ss.revenue},${ss.unitCount}\n`;
+      });
+    } else if (type === 'mineralCross') {
+      csv = 'Mineral Type,Quantity (g),Revenue,Unit Count,Percentage\n';
+      mineralTypeCrossCategory.forEach(m => {
+        csv += `${m.name},${m.qty},${m.revenue},${m.unitCount},${m.percentage}%\n`;
+      });
+    } else if (type === 'sizeCross') {
+      csv = 'Size,Quantity (g),Revenue,Unit Count,Percentage\n';
+      sizeCrossCategory.forEach(s => {
+        csv += `${s.name},${s.qty},${s.revenue},${s.unitCount},${s.percentage}%\n`;
+      });
+    } else if (type === 'chess') {
+      csv = 'Metric,Value\n';
+      csv += `Total Boards,${chessBoardSales.totalBoards}\n`;
+      csv += `Total Revenue,${chessBoardSales.totalRevenue}\n`;
+      csv += '\nCrystal Type,Count\n';
+      chessBoardSales.crystalTypes.forEach(ct => {
+        csv += `${ct.name},${ct.count}\n`;
+      });
     }
     
     const a = document.createElement('a');
@@ -180,11 +223,19 @@ export default function ReportsPage() {
   const enrichedItems = useMemo(() => {
     return items.map(item => {
       const cat = categories.find(c => c.id === item.category_id);
-      const cost = (item.cost_per_gram || 0) * (item.current_weight_grams || 0);
-      const retail = (item.price_crc || 0) * (item.current_weight_grams || 0);
+      const sub = subcategories.find(s => s.id === item.subcategory_id);
+      const ss = subSubcategories.find(ss => ss.id === item.sub_subcategory_id);
+      const cost = item.pricing_type === 'fixed' 
+        ? (item.cost_per_gram || 0) * (item.stock_unit || 0)
+        : (item.cost_per_gram || 0) * (item.current_weight_grams || 0);
+      const retail = item.pricing_type === 'fixed'
+        ? (item.fixed_price_crc || 0) * (item.stock_unit || 0)
+        : (item.price_crc || 0) * (item.current_weight_grams || 0);
       return {
         ...item,
         category_name: cat?.name || 'Uncategorized',
+        subcategory_name: sub?.name || '',
+        sub_subcategory_name: ss?.name || '',
         cost,
         retail,
         margin: retail - cost,
@@ -192,10 +243,13 @@ export default function ReportsPage() {
         daysLeft: item.depletion_rate_grams_per_day > 0 
           ? Math.round((item.current_weight_grams || 0) / item.depletion_rate_grams_per_day) 
           : 999,
-        stockKg: ((item.current_weight_grams || 0) / 1000).toFixed(3)
+        stockKg: ((item.current_weight_grams || 0) / 1000).toFixed(3),
+        stockDisplay: item.pricing_type === 'fixed' 
+          ? `${item.stock_unit || 0} units`
+          : `${((item.current_weight_grams || 0) / 1000).toFixed(3)} kg`
       };
     });
-  }, [items, categories]);
+  }, [items, categories, subcategories, subSubcategories]);
 
   return (
     <DashboardLayout currentPage="reports">
@@ -214,6 +268,8 @@ export default function ReportsPage() {
             </Button>
             <Button variant="outlined" startIcon={<Download />} onClick={() => handleExport('categories')}>Export Categories</Button>
             <Button variant="outlined" startIcon={<Download />} onClick={() => handleExport('minerals')}>Export Minerals</Button>
+            <Button variant="outlined" startIcon={<Download />} onClick={() => handleExport('subsubcategories')}>Export Sizes</Button>
+            <Button variant="outlined" startIcon={<Download />} onClick={() => handleExport('chess')}>Export Chess</Button>
           </Box>
         </Paper>
 
@@ -225,6 +281,9 @@ export default function ReportsPage() {
           <Tab label="Ventas / Sales" />
           <Tab label="Formas (Categorías)" />
           <Tab label="Tipos de Mineral" />
+          <Tab label="Tamaños por Categoría" />
+          <Tab label="Análisis Cruzado" />
+          <Tab label="Tablero Ajedrez" />
           <Tab label="Stock Bajo / Low Stock" />
         </Tabs>
 
@@ -300,9 +359,9 @@ export default function ReportsPage() {
         <TabPanel value={tab} index={1}>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button startIcon={<Download />} onClick={() => {
-              let csv = 'SKU,Name,Category,Stock (kg),Cost/g,Retail/g,Cost Value,Retail Value,Margin,Margin %,Días Quedan\n';
+              let csv = 'SKU,Name,Category,Subcategory,Sub-subcategory,Type,Stock,Cost/g,Retail/g,Cost Value,Retail Value,Margin,Margin %,Días Quedan\n';
               enrichedItems.forEach(i => {
-                csv += `${i.sku || ''},${i.name},${i.category_name},${i.stockKg},${i.cost_per_gram || 0},${i.price_crc || 0},${i.cost.toFixed(2)},${i.retail.toFixed(2)},${i.margin.toFixed(2)},${i.marginPct.toFixed(1)},${i.daysLeft}\n`;
+                csv += `${i.sku || ''},${i.name},${i.category_name},${i.subcategory_name},${i.sub_subcategory_name},${i.pricing_type},${i.stockDisplay},${i.cost_per_gram || 0},${i.price_crc || 0 || i.fixed_price_crc || 0},${i.cost.toFixed(2)},${i.retail.toFixed(2)},${i.margin.toFixed(2)},${i.marginPct.toFixed(1)},${i.daysLeft}\n`;
               });
               const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `inventory_${dateFrom}_${dateTo}.csv`; a.click();
             }} variant="contained">Export CSV</Button>
@@ -312,8 +371,10 @@ export default function ReportsPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>Categoría</TableCell>
+                  <TableCell>Subcategoría</TableCell>
+                  <TableCell>Tamaño/Tipo</TableCell>
                   <TableCell>Artículo</TableCell>
-                  <TableCell align="right">Stock (kg)</TableCell>
+                  <TableCell align="right">Stock</TableCell>
                   <TableCell align="right">Costo/g</TableCell>
                   <TableCell align="right">Venta/g</TableCell>
                   <TableCell align="right">Valor Costo</TableCell>
@@ -326,8 +387,10 @@ export default function ReportsPage() {
                 {enrichedItems.map((item, idx) => (
                   <TableRow key={idx} sx={{ bgcolor: item.daysLeft <= 30 ? `${COLORS.error}15` : item.daysLeft <= 60 ? `${COLORS.warning}15` : 'inherit' }}>
                     <TableCell>{item.category_name}</TableCell>
+                    <TableCell>{item.subcategory_name || '-'}</TableCell>
+                    <TableCell>{item.sub_subcategory_name || '-'}</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>{item.name}</TableCell>
-                    <TableCell align="right">{item.stockKg}</TableCell>
+                    <TableCell align="right">{item.stockDisplay}</TableCell>
                     <TableCell align="right">{formatCurrency(item.cost_per_gram || 0)}</TableCell>
                     <TableCell align="right">{formatCurrency(item.price_crc || 0)}</TableCell>
                     <TableCell align="right">{formatCurrency(item.cost)}</TableCell>
@@ -535,7 +598,298 @@ export default function ReportsPage() {
           )}
         </TabPanel>
 
-        <TabPanel value={tab} index={5}>
+        <TabPanel value={tab} index={8}>
+          <Typography variant="h5" sx={{ mb: 2, color: COLORS.warning }}>⚠️ Alerta Stock Bajo (60 días o menos)</Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Artículo</TableCell>
+                  <TableCell>Categoría</TableCell>
+                  <TableCell>Tipo</TableCell>
+                  <TableCell align="right">Stock</TableCell>
+                  <TableCell align="right">Días Quedan</TableCell>
+                  <TableCell>Recomendación</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {lowStockItems.map((item, idx) => {
+                  const stockDisplay = item.pricing_type === 'fixed' 
+                    ? `${item.stock_unit || 0} unidades`
+                    : `${item.current_weight_grams}g`;
+                  return (
+                    <TableRow key={idx} sx={{ bgcolor: item.daysLeft <= 30 ? `${COLORS.error}20` : `${COLORS.warning}20` }}>
+                      <TableCell sx={{ fontWeight: 'bold' }}>{item.name}</TableCell>
+                      <TableCell>{categories.find(c => c.id === item.category_id)?.name || 'N/A'}</TableCell>
+                      <TableCell>{item.pricing_type === 'fixed' ? 'Unidades' : 'Peso'}</TableCell>
+                      <TableCell align="right">{stockDisplay}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold', color: item.daysLeft <= 30 ? COLORS.error : COLORS.warning }}>
+                        {item.daysLeft} días
+                      </TableCell>
+                      <TableCell>{item.daysLeft <= 30 ? '🔴 Ordene URGENTE' : '🟠 Ordene pronto'}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {lowStockItems.length === 0 && (
+            <Alert severity="success" sx={{ mt: 2 }}>✅ Todo el inventario está bien!</Alert>
+          )}
+        </TabPanel>
+
+        <TabPanel value={tab} index={6}>
+          <Alert severity="info" sx={{ mb: 2 }} icon={<Info />}>
+            <Typography variant="body2">
+              <strong>Análisis Cruzado:</strong> Muestra qué tipos de mineral y tamaños se venden en todas las categorías de producto.<br/>
+              <strong>Tipos de Mineral:</strong> Amatista, Cuarzo Rosa, etc. aparecen aunque se vendan como punto, torre o cluster.<br/>
+              <strong>Tamaños:</strong> M, L, XL, XXL de Cathedrals-Geodes, Box de Incense, etc.
+            </Typography>
+          </Alert>
+          
+          <Typography variant="h5" sx={{ mb: 2, color: COLORS.success, fontWeight: 'bold' }}>💎 Tipos de Mineral (Todas las Categorías)</Typography>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {mineralTypeCrossCategory.slice(0, 6).map((mineral, idx) => (
+              <Grid key={idx} size={{ xs: 12, sm: 6, md: 4 }}>
+                <Card sx={{ 
+                  bgcolor: idx === 0 ? COLORS.success : idx === 1 ? COLORS.secondary : COLORS.accent, 
+                  color: 'white',
+                  border: idx < 3 ? `3px solid ${COLORS.secondary}` : 'none'
+                }}>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight="bold">{mineral.name}</Typography>
+                    <Typography variant="h4" fontWeight="bold">{formatCurrency(mineral.revenue)}</Typography>
+                    <Typography variant="body2">{mineral.qty.toLocaleString()}g vendido</Typography>
+                    <Chip 
+                      label={`${mineral.percentage}% del total`} 
+                      size="small" 
+                      sx={{ mt: 1, bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                    />
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          
+          <TableContainer component={Paper} sx={{ mb: 4 }}>
+            <Table>
+              <TableHead sx={{ bgcolor: COLORS.success }}>
+                <TableRow>
+                  <TableCell sx={{ color: 'white' }}>#</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Tipo de Mineral</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Cantidad (g)</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Unidades</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Ingresos</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">% del Total</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {mineralTypeCrossCategory.map((mineral, idx) => (
+                  <TableRow key={idx} sx={{ 
+                    bgcolor: idx < 3 ? `${COLORS.success}15` : 'inherit',
+                    '&:hover': { bgcolor: `${COLORS.primary}10` }
+                  }}>
+                    <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit' }}>{idx + 1}</TableCell>
+                    <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit', color: idx < 3 ? COLORS.success : 'inherit' }}>
+                      {idx < 3 && '🏆 '}{mineral.name}
+                    </TableCell>
+                    <TableCell align="right">{mineral.qty.toLocaleString()}g</TableCell>
+                    <TableCell align="right">{mineral.unitCount > 0 ? mineral.unitCount : '-'}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(mineral.revenue)}</TableCell>
+                    <TableCell align="right">
+                      <Chip 
+                        label={`${mineral.percentage}%`}
+                        color={idx < 3 ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {mineralTypeCrossCategory.length === 0 && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              No se encontraron ventas con subcategorías asignadas. Asegúrate de que los artículos tengan una subcategoría (tipo de mineral) asignada.
+            </Alert>
+          )}
+          
+          <Typography variant="h5" sx={{ mb: 2, color: COLORS.primary, fontWeight: 'bold' }}>📦 Tamaños (Todas las Categorías)</Typography>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {sizeCrossCategory.slice(0, 6).map((size, idx) => (
+              <Grid key={idx} size={{ xs: 12, sm: 6, md: 4 }}>
+                <Card sx={{ 
+                  bgcolor: idx === 0 ? COLORS.primary : idx === 1 ? COLORS.secondary : 'white', 
+                  color: idx < 2 ? 'white' : 'inherit',
+                  border: idx < 3 ? `3px solid ${COLORS.secondary}` : 'none'
+                }}>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight="bold">{size.name}</Typography>
+                    <Typography variant="h4" fontWeight="bold">{formatCurrency(size.revenue)}</Typography>
+                    <Typography variant="body2">{size.qty.toLocaleString()}g vendido</Typography>
+                    <Chip 
+                      label={`${size.percentage}% del total`} 
+                      size="small" 
+                      sx={{ mt: 1, bgcolor: 'rgba(255,255,255,0.2)', color: idx < 2 ? 'white' : COLORS.primary }}
+                    />
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead sx={{ bgcolor: COLORS.primary }}>
+                <TableRow>
+                  <TableCell sx={{ color: 'white' }}>#</TableCell>
+                  <TableCell sx={{ color: 'white' }}>Tamaño</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Cantidad (g)</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Unidades</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">Ingresos</TableCell>
+                  <TableCell sx={{ color: 'white' }} align="right">% del Total</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {sizeCrossCategory.map((size, idx) => (
+                  <TableRow key={idx} sx={{ 
+                    bgcolor: idx < 3 ? `${COLORS.primary}15` : 'inherit',
+                    '&:hover': { bgcolor: `${COLORS.primary}10` }
+                  }}>
+                    <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit' }}>{idx + 1}</TableCell>
+                    <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit', color: idx < 3 ? COLORS.primary : 'inherit' }}>
+                      {idx < 3 && '🏆 '}{size.name}
+                    </TableCell>
+                    <TableCell align="right">{size.qty.toLocaleString()}g</TableCell>
+                    <TableCell align="right">{size.unitCount > 0 ? size.unitCount : '-'}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(size.revenue)}</TableCell>
+                    <TableCell align="right">
+                      <Chip 
+                        label={`${size.percentage}%`}
+                        color={idx < 3 ? 'primary' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {sizeCrossCategory.length === 0 && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              No se encontraron ventas con sub-subcategorías asignadas. Asegúrate de que los artículos tengan una sub-subcategoría (tamaño) asignada.
+            </Alert>
+          )}
+        </TabPanel>
+
+        <TabPanel value={tab} index={7}>
+          <Alert severity="info" sx={{ mb: 2 }} icon={<Info />}>
+            <Typography variant="body2">
+              <strong>Análisis de Tableros de Ajedrez:</strong> Muestra ventas de Tournament Smart Chess Board,<br/>
+              incluyendo qué tipos de cristal eligen los clientes (Amatista, Cuarzo Rosa, etc.).<br/>
+              El precio es fijo sin importar la combinación de cristales.
+            </Typography>
+          </Alert>
+          
+          <Typography variant="h5" sx={{ mb: 2, color: COLORS.secondary, fontWeight: 'bold' }}>♟️ Tableros de Ajedrez Vendidos</Typography>
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Card sx={{ bgcolor: COLORS.secondary, color: 'white' }}>
+                <CardContent>
+                  <Typography variant="body2" sx={{ opacity: 0.8 }}>Total Tableros</Typography>
+                  <Typography variant="h3" fontWeight="bold">{chessBoardSales.totalBoards}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Card sx={{ bgcolor: COLORS.primary, color: 'white' }}>
+                <CardContent>
+                  <Typography variant="body2" sx={{ opacity: 0.8 }}>Ingresos Totales</Typography>
+                  <Typography variant="h3" fontWeight="bold">{formatCurrency(chessBoardSales.totalRevenue)}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Card>
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary">Promedio por Tablero</Typography>
+                  <Typography variant="h3" fontWeight="bold">
+                    {chessBoardSales.totalBoards > 0 ? formatCurrency(chessBoardSales.totalRevenue / chessBoardSales.totalBoards) : formatCurrency(0)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+          
+          <Typography variant="h6" sx={{ mb: 2, color: COLORS.accent, fontWeight: 'bold' }}>💎 Tipos de Cristal Elegidos</Typography>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {chessBoardSales.crystalTypes.slice(0, 8).map((ct, idx) => (
+              <Grid key={idx} size={{ xs: 6, sm: 4, md: 3 }}>
+                <Card sx={{ 
+                  bgcolor: idx === 0 ? COLORS.accent : idx === 1 ? COLORS.secondary : 'white', 
+                  color: idx < 2 ? 'white' : 'inherit',
+                  border: idx < 3 ? `3px solid ${COLORS.secondary}` : 'none'
+                }}>
+                  <CardContent sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6" fontWeight="bold">{ct.name}</Typography>
+                    <Typography variant="h4" fontWeight="bold">{ct.count}</Typography>
+                    <Typography variant="body2">{ct.count === 1 ? 'vez' : 'veces'} elegido</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          
+          {chessBoardSales.crystalTypes.length > 0 && (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead sx={{ bgcolor: COLORS.secondary }}>
+                  <TableRow>
+                    <TableCell sx={{ color: 'white' }}>#</TableCell>
+                    <TableCell sx={{ color: 'white' }}>Tipo de Cristal</TableCell>
+                    <TableCell sx={{ color: 'white' }} align="right">Veces Elegido</TableCell>
+                    <TableCell sx={{ color: 'white' }} align="right">% del Total</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {chessBoardSales.crystalTypes.map((ct, idx) => {
+                    const totalSelections = chessBoardSales.crystalTypes.reduce((sum, c) => sum + c.count, 0);
+                    const pct = totalSelections > 0 ? ((ct.count / totalSelections) * 100).toFixed(1) : '0';
+                    return (
+                      <TableRow key={idx} sx={{ 
+                        bgcolor: idx < 3 ? `${COLORS.secondary}15` : 'inherit',
+                        '&:hover': { bgcolor: `${COLORS.primary}10` }
+                      }}>
+                        <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit' }}>{idx + 1}</TableCell>
+                        <TableCell sx={{ fontWeight: idx < 3 ? 'bold' : 'inherit', color: idx < 3 ? COLORS.secondary : 'inherit' }}>
+                          {idx < 3 && '🏆 '}{ct.name}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>{ct.count}</TableCell>
+                        <TableCell align="right">
+                          <Chip 
+                            label={`${pct}%`}
+                            color={idx < 3 ? 'secondary' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+          
+          {chessBoardSales.totalBoards === 0 && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              No se encontraron ventas de tableros de ajedrez. Asegúrate de que los artículos de Tournament Smart Chess Board estén en la categoría correcta.
+            </Alert>
+          )}
+        </TabPanel>
+
+        <TabPanel value={tab} index={8}>
           <Typography variant="h5" sx={{ mb: 2, color: COLORS.warning }}>⚠️ Alerta Stock Bajo (60 días o menos)</Typography>
           <TableContainer>
             <Table size="small">
