@@ -28,7 +28,7 @@
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.2.26",
-    "supabase": "^2.95.6",
+    "supabase": "^2.109.1",
     "typescript": "^5"
   }
 }
